@@ -1,3 +1,9 @@
 tipme
+tipme-deploy
 tipme.db
 *.db
+*.db-shm
+*.db-wal
+vendor/
+result
+.env.deploy

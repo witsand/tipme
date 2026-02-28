@@ -1,0 +1,30 @@
+[Unit]
+Description=TipMe Lightning Voucher Server
+After=network.target
+Documentation=https://github.com/youruser/tipme
+
+[Service]
+Type=simple
+User=tipme
+Group=tipme
+WorkingDirectory=/opt/tipme
+
+# Binary lives alongside static/ in the working directory.
+ExecStart=/opt/tipme/tipme
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=10s
+
+# Environment — secrets go here (not in the unit file itself).
+EnvironmentFile=-/opt/tipme/.env
+
+# Basic hardening
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# Allow writes only inside /opt/tipme (DB file, etc.)
+ReadWritePaths=/opt/tipme
+
+[Install]
+WantedBy=multi-user.target
