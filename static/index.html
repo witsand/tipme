@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TipMe — Lightning Vouchers</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      color: #111;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+
+    header {
+      max-width: 960px;
+      margin: 0 auto 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    header h1 { font-size: 1.6rem; }
+    header p  { color: #555; font-size: 0.9rem; }
+
+    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary   { background: #f7931a; color: #fff; }
+    .btn-secondary { background: #333; color: #fff; }
+    .btn-outline   { background: transparent; border: 2px solid #333; color: #333; }
+
+    /* ── Form ── */
+    #form-section {
+      max-width: 480px;
+      margin: 0 auto 2rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    #form-section h2 { margin-bottom: 1.25rem; font-size: 1.2rem; }
+
+    label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.88rem; }
+
+    input, select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #f7931a; }
+
+    .field-hint { color: #777; font-size: 0.8rem; margin-top: -0.75rem; margin-bottom: 1rem; }
+
+    #form-error {
+      color: #c00;
+      font-size: 0.88rem;
+      margin-bottom: 0.75rem;
+      display: none;
+    }
+
+    /* ── Invoice section ── */
+    #invoice-section {
+      max-width: 480px;
+      margin: 0 auto 2rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      display: none;
+    }
+
+    #invoice-section h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
+    #invoice-status-msg { color: #555; font-size: 0.9rem; margin-bottom: 1rem; }
+
+    #invoice-qr {
+      display: flex;
+      justify-content: center;
+      margin: 1rem 0;
+    }
+
+    #invoice-string {
+      font-family: monospace;
+      font-size: 0.7rem;
+      word-break: break-all;
+      background: #f5f5f5;
+      border-radius: 6px;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      user-select: all;
+    }
+
+    .copy-hint { font-size: 0.78rem; color: #888; text-align: center; }
+
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 3px solid #ddd;
+      border-top-color: #f7931a;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #poll-status { margin-top: 1rem; font-size: 0.9rem; color: #555; display: flex; align-items: center; }
+
+    /* ── Voucher grid ── */
+    #vouchers-section { display: none; max-width: 960px; margin: 0 auto; }
+    #vouchers-section h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+
+    .voucher-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .voucher-grid { grid-template-columns: 1fr; }
+    }
+
+    .voucher-card {
+      background: #fff;
+      border: 2px dashed #bbb;
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .voucher-card h3 {
+      text-align: center;
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.04em;
+    }
+
+    .voucher-meta { font-size: 0.8rem; color: #444; }
+
+    .voucher-qrs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .voucher-qr-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .voucher-qr-block canvas,
+    .voucher-qr-block img {
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+
+    .voucher-qr-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .voucher-actions { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
+
+    /* ── Print styles ── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      header, #form-section, #invoice-section, .header-actions, .voucher-actions { display: none !important; }
+      #vouchers-section { display: block !important; max-width: none; }
+      #vouchers-section h2 { display: none; }
+
+      .voucher-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0;
+        page-break-inside: avoid;
+      }
+
+      .voucher-card {
+        border: 1.5px dashed #999;
+        border-radius: 0;
+        page-break-inside: avoid;
+        margin: 4mm;
+        padding: 6mm;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ TipMe</h1>
+    <p>Create printable Lightning tip vouchers</p>
+  </div>
+  <div class="header-actions" id="header-actions" style="display:none">
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+    <button class="btn-secondary" onclick="downloadPDF()">⬇️ Download PDF</button>
+    <button class="btn-primary" onclick="resetForm()">+ New Batch</button>
+  </div>
+</header>
+
+<!-- Creation form -->
+<section id="form-section">
+  <h2>Create Vouchers</h2>
+  <div id="form-error"></div>
+
+  <label for="address">Lightning Address</label>
+  <input id="address" type="email" placeholder="alice@getalby.com" autocomplete="off" />
+
+  <label for="count">Number of Vouchers (1–100)</label>
+  <input id="count" type="number" value="1" min="1" max="100" />
+  <p class="field-hint">A small fee is charged per voucher to cover server costs.</p>
+
+  <label for="expiry">Relative Expiry After Funding (days)</label>
+  <input id="expiry" type="number" value="30" min="1" max="3650" />
+  <p class="field-hint">The voucher expires this many days after the last payment.</p>
+
+  <button class="btn-primary" id="create-btn" onclick="createVouchers()" style="width:100%">
+    Generate Invoice
+  </button>
+</section>
+
+<!-- Invoice section -->
+<section id="invoice-section">
+  <h2>Pay to Create Vouchers</h2>
+  <p id="invoice-status-msg"></p>
+  <div id="invoice-qr"></div>
+  <div id="invoice-string" title="Click to copy" onclick="copyInvoice()"></div>
+  <p class="copy-hint">Tap invoice string to copy · Scan QR with your Lightning wallet</p>
+  <div id="poll-status">
+    <span class="spinner"></span> Waiting for payment…
+  </div>
+</section>
+
+<!-- Voucher cards -->
+<section id="vouchers-section">
+  <h2 id="vouchers-title"></h2>
+  <div class="voucher-grid" id="voucher-grid"></div>
+</section>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let currentPaymentHash = null;
+let currentInvoice = null;
+let pollTimer = null;
+let currentVouchers = [];
+
+// ── Form submission ──────────────────────────────────────────────────────────
+async function createVouchers() {
+  const address = document.getElementById('address').value.trim();
+  const count = parseInt(document.getElementById('count').value, 10);
+  const expiryDays = parseInt(document.getElementById('expiry').value, 10);
+  const errEl = document.getElementById('form-error');
+
+  errEl.style.display = 'none';
+
+  if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    showFormError('Please enter a valid Lightning address.');
+    return;
+  }
+  if (!count || count < 1 || count > 100) {
+    showFormError('Count must be between 1 and 100.');
+    return;
+  }
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const res = await fetch('/api/vouchers/invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lightning_address: address,
+        count: count,
+        expiry_seconds: expiryDays * 86400
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showFormError(data.error || 'Request failed.');
+      return;
+    }
+    showInvoice(data.invoice, data.payment_hash, data.fee_sats, count);
+  } catch (e) {
+    showFormError('Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Invoice';
+  }
+}
+
+function showFormError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Invoice display ──────────────────────────────────────────────────────────
+function showInvoice(invoice, paymentHash, feeSats, count) {
+  currentPaymentHash = paymentHash;
+  currentInvoice = invoice;
+
+  document.getElementById('form-section').style.display = 'none';
+  const sec = document.getElementById('invoice-section');
+  sec.style.display = 'block';
+
+  document.getElementById('invoice-status-msg').textContent =
+    `Pay ${feeSats} sat${feeSats === 1 ? '' : 's'} to create ${count} voucher${count === 1 ? '' : 's'}.`;
+
+  // Invoice string
+  document.getElementById('invoice-string').textContent = invoice;
+
+  // QR code
+  const qrEl = document.getElementById('invoice-qr');
+  qrEl.innerHTML = '';
+  new QRCode(qrEl, {
+    text: invoice.toUpperCase(),
+    width: 220,
+    height: 220,
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // Start polling
+  startPolling(paymentHash);
+}
+
+function copyInvoice() {
+  if (currentInvoice) {
+    navigator.clipboard.writeText(currentInvoice).catch(() => {});
+    const el = document.getElementById('invoice-string');
+    const orig = el.textContent;
+    el.textContent = '✓ Copied!';
+    setTimeout(() => { el.textContent = orig; }, 1500);
+  }
+}
+
+// ── Polling ──────────────────────────────────────────────────────────────────
+function startPolling(paymentHash) {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => pollStatus(paymentHash), 2000);
+}
+
+async function pollStatus(paymentHash) {
+  try {
+    const res = await fetch('/api/vouchers/status/' + encodeURIComponent(paymentHash));
+    const data = await res.json();
+
+    if (data.status === 'complete') {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      showVouchers(data.vouchers);
+    } else if (data.status === 'expired') {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      document.getElementById('poll-status').innerHTML =
+        '⚠️ Invoice expired. <a href="/" style="color:#f7931a">Start over</a>';
+    }
+    // else still 'pending' — keep polling
+  } catch (e) {
+    // Network hiccup — keep polling
+  }
+}
+
+// ── Voucher rendering ────────────────────────────────────────────────────────
+async function showVouchers(vouchers) {
+  currentVouchers = vouchers;
+
+  document.getElementById('invoice-section').style.display = 'none';
+  document.getElementById('header-actions').style.display = 'flex';
+  document.getElementById('vouchers-section').style.display = 'block';
+
+  const count = vouchers.length;
+  document.getElementById('vouchers-title').textContent =
+    count + ' Voucher' + (count === 1 ? '' : 's') + ' Ready';
+
+  const grid = document.getElementById('voucher-grid');
+  grid.innerHTML = '';
+
+  for (let i = 0; i < vouchers.length; i++) {
+    const v = vouchers[i];
+    const card = await buildCard(v, i);
+    grid.appendChild(card);
+  }
+}
+
+async function buildCard(v, idx) {
+  const card = document.createElement('div');
+  card.className = 'voucher-card';
+  card.dataset.idx = idx;
+
+  const absDate = new Date(v.absolute_expiry).toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric'
+  });
+  const relDays = Math.round(v.relative_expiry_seconds / 86400);
+
+  card.innerHTML = `
+    <h3>⚡ TipMe Voucher</h3>
+    <p class="voucher-meta">Address: <strong>${escHtml(v.lightning_address)}</strong></p>
+    <p class="voucher-meta">Expires: ${escHtml(absDate)} · or ${relDays}d after last tip</p>
+    <div class="voucher-qrs">
+      <div class="voucher-qr-block">
+        <div id="qr-pay-${idx}"></div>
+        <span class="voucher-qr-label">⚡ FUND</span>
+      </div>
+      <div class="voucher-qr-block">
+        <div id="qr-withdraw-${idx}"></div>
+        <span class="voucher-qr-label">💸 CLAIM</span>
+      </div>
+    </div>
+  `;
+
+  // Render QR codes after card is in the DOM tree (QRCode needs a real element).
+  setTimeout(() => {
+    new QRCode(document.getElementById('qr-pay-' + idx), {
+      text: v.lnurl_pay,
+      width: 140,
+      height: 140,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    new QRCode(document.getElementById('qr-withdraw-' + idx), {
+      text: v.lnurl_withdraw,
+      width: 140,
+      height: 140,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }, 0);
+
+  return card;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── PDF Download ─────────────────────────────────────────────────────────────
+async function downloadPDF() {
+  if (!currentVouchers.length) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const pageW = 210, pageH = 297;
+  const margin = 10;
+  const cardW = (pageW - margin * 3) / 2;
+  const cardH = 115;
+  const qrMM = 48; // QR size in mm
+
+  let col = 0, row = 0;
+  let pageNum = 0;
+
+  for (let i = 0; i < currentVouchers.length; i++) {
+    const v = currentVouchers[i];
+
+    const cardX = margin + col * (cardW + margin);
+    const cardY = margin + row * (cardH + margin);
+
+    // New page if needed (after first card placement).
+    if (i > 0 && col === 0 && row === 0) {
+      doc.addPage();
+      pageNum++;
+    }
+
+    await drawCardPDF(doc, v, cardX, cardY, cardW, cardH, qrMM);
+
+    col++;
+    if (col >= 2) { col = 0; row++; }
+    if (row >= 2) { col = 0; row = 0; }
+  }
+
+  doc.save('tipme-vouchers.pdf');
+}
+
+async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
+  // Border
+  doc.setDrawColor(150);
+  doc.setLineDashPattern([2, 2], 0);
+  doc.setLineWidth(0.5);
+  doc.rect(x, y, w, h);
+  doc.setLineDashPattern([], 0);
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('TipMe Voucher', x + w / 2, y + 8, { align: 'center' });
+
+  // Meta
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text('Address: ' + v.lightning_address, x + 4, y + 15);
+
+  const absDate = new Date(v.absolute_expiry).toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric'
+  });
+  const relDays = Math.round(v.relative_expiry_seconds / 86400);
+  doc.text(`Expires: ${absDate}  (or ${relDays}d after last tip)`, x + 4, y + 21);
+
+  // QR codes
+  const payDataURL = await getQRDataURL(v.lnurl_pay, 256);
+  const withDataURL = await getQRDataURL(v.lnurl_withdraw, 256);
+
+  const qrY = y + 26;
+  const qrX1 = x + 5;
+  const qrX2 = x + w - qrMM - 5;
+
+  doc.addImage(payDataURL, 'PNG', qrX1, qrY, qrMM, qrMM);
+  doc.addImage(withDataURL, 'PNG', qrX2, qrY, qrMM, qrMM);
+
+  // Labels
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('FUND', qrX1 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
+  doc.text('CLAIM', qrX2 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
+}
+
+// Generate a QR code off-screen and return a data URL.
+function getQRDataURL(text, size) {
+  return new Promise(resolve => {
+    const container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+    document.body.appendChild(container);
+
+    new QRCode(container, {
+      text: text,
+      width: size,
+      height: size,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // qrcodejs renders asynchronously; wait a tick then grab the image src.
+    setTimeout(() => {
+      const img = container.querySelector('img');
+      const canvas = container.querySelector('canvas');
+      const dataURL = (img && img.src) ? img.src
+                    : (canvas ? canvas.toDataURL('image/png') : '');
+      document.body.removeChild(container);
+      resolve(dataURL);
+    }, 80);
+  });
+}
+
+// ── Reset ────────────────────────────────────────────────────────────────────
+function resetForm() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  currentPaymentHash = null;
+  currentInvoice = null;
+  currentVouchers = [];
+
+  document.getElementById('vouchers-section').style.display = 'none';
+  document.getElementById('invoice-section').style.display = 'none';
+  document.getElementById('header-actions').style.display = 'none';
+  document.getElementById('form-section').style.display = 'block';
+  document.getElementById('form-error').style.display = 'none';
+  document.getElementById('voucher-grid').innerHTML = '';
+  document.getElementById('poll-status').innerHTML =
+    '<span class="spinner"></span> Waiting for payment…';
+}
+
+// Allow Enter key in the form fields to submit.
+document.querySelectorAll('#form-section input').forEach(el => {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') createVouchers(); });
+});
+</script>
+</body>
+</html>
