@@ -7,3 +7,4 @@ tipme.db
 vendor/
 result
 .env.deploy
+.env

@@ -35,6 +35,18 @@ func lnurlError(w http.ResponseWriter, reason string) {
 	})
 }
 
+// ── GET /api/config ──────────────────────────────────────────────────────────
+
+func handleConfig(w http.ResponseWriter, r *http.Request) {
+	charities := cfg.Charities
+	if charities == nil {
+		charities = []Charity{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"charities": charities,
+	})
+}
+
 // ── POST /api/vouchers/invoice ───────────────────────────────────────────────
 
 type createInvoiceRequest struct {
@@ -61,8 +73,11 @@ func handleCreateInvoice(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if req.ExpirySeconds <= 0 {
-		req.ExpirySeconds = cfg.DefaultRelativeExpirySecs
+	if req.ExpirySeconds <= 3600 || req.ExpirySeconds > cfg.VoucherAbsoluteExpirySecs {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("expiry_seconds must be between 3600 and %d", cfg.VoucherAbsoluteExpirySecs),
+		})
+		return
 	}
 
 	feeSats := cfg.FeePerVoucherSats * int64(req.Count)
@@ -176,12 +191,12 @@ func handleVoucherStatus(w http.ResponseWriter, r *http.Request) {
 
 		absExpiry := v.CreatedAt.Add(time.Duration(cfg.VoucherAbsoluteExpirySecs) * time.Second)
 		resp = append(resp, voucherResp{
-			LNURLPay:         lnurlPay,
-			LNURLWithdraw:    lnurlWith,
-			PayInfoURL:       fmt.Sprintf("%s/pay/info?lightning=%s", cfg.BaseURL, lnurlPay),
-			WithdrawInfoURL:  fmt.Sprintf("%s/withdraw/info?lightning=%s", cfg.BaseURL, lnurlWith),
-			LightningAddress: v.LightningAddress,
-			AbsoluteExpiry:   absExpiry.UTC().Format(time.RFC3339),
+			LNURLPay:          lnurlPay,
+			LNURLWithdraw:     lnurlWith,
+			PayInfoURL:        fmt.Sprintf("%s/pay/info?lightning=%s", cfg.BaseURL, lnurlPay),
+			WithdrawInfoURL:   fmt.Sprintf("%s/withdraw/info?lightning=%s", cfg.BaseURL, lnurlWith),
+			LightningAddress:  v.LightningAddress,
+			AbsoluteExpiry:    absExpiry.UTC().Format(time.RFC3339),
 			RelativeExpirySec: v.ExpirySeconds,
 		})
 	}
@@ -464,7 +479,6 @@ func runRefundJob(ctx context.Context) error {
 	}
 
 	log.Printf("refund job: found %d expired voucher(s) with balance", len(expired))
-
 
 	for _, v := range expired {
 		func(v *Voucher) {

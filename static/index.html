@@ -11,91 +11,176 @@
 
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f5f5;
+      background: #ffffff;
       color: #111;
-      padding: 1rem;
       min-height: 100vh;
+      padding: 1rem;
     }
 
-    header {
-      max-width: 960px;
-      margin: 0 auto 2rem;
+    /* ── Wizard card ── */
+    .wizard-card {
+      max-width: 480px;
+      margin: 2rem auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem 1.75rem;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+    .card-subtitle {
+      font-size: 0.88rem;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid #eee;
+      margin: 1.5rem 0;
+    }
+
+    .section-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.65rem;
+    }
+    .section-hint {
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 0.65rem;
+    }
+
+    /* ── Pills ── */
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .pill {
+      min-height: 44px;
+      padding: 0 1.15rem;
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      background: #f4f4f4;
+      color: #111;
+      font-size: 0.93rem;
+      font-weight: 600;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
+      gap: 0.45rem;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .pill:hover { background: #ebebeb; }
+    .pill.selected {
+      background: #fff4e5;
+      border-color: #f7931a;
+      color: #f7931a;
     }
 
-    header h1 { font-size: 1.6rem; }
-    header p  { color: #555; font-size: 0.9rem; }
-
-    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: opacity 0.15s;
+    /* Charity pill extras */
+    .pill.charity-pill { padding: 0 0.85rem 0 0.65rem; }
+    .pill img.charity-logo {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
     }
-    button:hover { opacity: 0.85; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn-primary   { background: #f7931a; color: #fff; }
-    .btn-secondary { background: #333; color: #fff; }
-    .btn-outline   { background: transparent; border: 2px solid #333; color: #333; }
-
-    /* ── Form ── */
-    #form-section {
-      max-width: 480px;
-      margin: 0 auto 2rem;
-      background: #fff;
-      border-radius: 12px;
-      padding: 1.75rem;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    .pill .charity-link {
+      color: #aaa;
+      font-size: 0.75rem;
+      margin-left: 2px;
+      text-decoration: none;
     }
+    .pill .charity-link:hover { color: #f7931a; }
 
-    #form-section h2 { margin-bottom: 1.25rem; font-size: 1.2rem; }
+    /* ── Expandable areas ── */
+    .expand {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.25s ease;
+    }
+    .expand.open { max-height: 120px; }
 
-    label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.88rem; }
-
-    input, select {
+    .expand input {
       width: 100%;
       padding: 0.6rem 0.75rem;
       border: 1.5px solid #ddd;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 0.95rem;
-      margin-bottom: 1rem;
+      margin-top: 0.6rem;
       outline: none;
       transition: border-color 0.15s;
     }
-    input:focus { border-color: #f7931a; }
+    .expand input:focus { border-color: #f7931a; }
 
-    .field-hint { color: #777; font-size: 0.8rem; margin-top: -0.75rem; margin-bottom: 1rem; }
 
-    #form-error {
+    /* Or divider */
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #999;
+      font-size: 0.82rem;
+      margin: 1.1rem 0;
+    }
+    .or-divider::before, .or-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #eee;
+    }
+
+    /* CTA button */
+    .btn-primary {
+      background: #f7931a;
+      color: #fff;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.7rem 1.75rem;
+      font-size: 0.97rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.75rem;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    .error-msg {
       color: #c00;
-      font-size: 0.88rem;
-      margin-bottom: 0.75rem;
-      display: none;
+      font-size: 0.83rem;
+      margin-top: 0.4rem;
+      min-height: 1.1em;
     }
 
     /* ── Invoice section ── */
-    #invoice-section {
-      max-width: 480px;
-      margin: 0 auto 2rem;
-      background: #fff;
-      border-radius: 12px;
-      padding: 1.75rem;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      display: none;
-    }
+    #invoice-section { display: none; }
+    #invoice-status-msg { color: #555; font-size: 0.9rem; margin-bottom: 1rem; text-align: center; }
 
-    #invoice-section h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
-    #invoice-status-msg { color: #555; font-size: 0.9rem; margin-bottom: 1rem; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .summary-val {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #111;
+      margin-top: 0.25rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     #invoice-qr {
       display: flex;
@@ -103,19 +188,44 @@
       margin: 1rem 0;
     }
 
-    #invoice-string {
-      font-family: monospace;
-      font-size: 0.7rem;
-      word-break: break-all;
-      background: #f5f5f5;
-      border-radius: 6px;
-      padding: 0.6rem;
+    .invoice-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
       margin-bottom: 1rem;
-      cursor: pointer;
-      user-select: all;
     }
-
-    .copy-hint { font-size: 0.78rem; color: #888; text-align: center; }
+    .btn-wallet {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f7931a;
+      color: #fff;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.65rem 1rem;
+      font-size: 0.93rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn-wallet:hover { opacity: 0.88; }
+    .btn-copy {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f4f4f4;
+      color: #111;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.93rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-copy:hover { background: #ebebeb; }
 
     .spinner {
       display: inline-block;
@@ -129,11 +239,18 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    #poll-status { margin-top: 1rem; font-size: 0.9rem; color: #555; display: flex; align-items: center; }
+    #poll-status { margin-top: 1rem; font-size: 0.9rem; color: #555; display: flex; align-items: center; justify-content: center; }
 
     /* ── Voucher grid ── */
     #vouchers-section { display: none; max-width: 960px; margin: 0 auto; }
-    #vouchers-section h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+    #vouchers-section > h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+
+    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+    .btn-outline   { background: transparent; border: 2px solid #333; color: #333; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn-secondary { background: #333; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn-new       { background: #f7931a; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .btn-outline:hover, .btn-secondary:hover, .btn-new:hover { opacity: 0.85; }
 
     .voucher-grid {
       display: grid;
@@ -141,7 +258,6 @@
       gap: 1.25rem;
       margin-bottom: 1.5rem;
     }
-
     @media (max-width: 600px) {
       .voucher-grid { grid-template-columns: 1fr; }
     }
@@ -155,14 +271,12 @@
       flex-direction: column;
       gap: 0.4rem;
     }
-
     .voucher-card h3 {
       text-align: center;
       font-size: 1rem;
       margin-bottom: 0.25rem;
       letter-spacing: 0.04em;
     }
-
     .voucher-meta { font-size: 0.8rem; color: #444; }
 
     .voucher-qrs {
@@ -171,20 +285,17 @@
       gap: 0.75rem;
       margin-top: 0.5rem;
     }
-
     .voucher-qr-block {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.35rem;
     }
-
     .voucher-qr-block canvas,
     .voucher-qr-block img {
       border: 1px solid #eee;
       border-radius: 4px;
     }
-
     .voucher-qr-label {
       font-size: 0.75rem;
       font-weight: 700;
@@ -192,14 +303,12 @@
       text-align: center;
     }
 
-    .voucher-actions { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
-
     /* ── Print styles ── */
     @media print {
       body { background: #fff; padding: 0; }
-      header, #form-section, #invoice-section, .header-actions, .voucher-actions { display: none !important; }
+      .wizard-card, #invoice-section, .header-actions { display: none !important; }
       #vouchers-section { display: block !important; max-width: none; }
-      #vouchers-section h2 { display: none; }
+      #vouchers-section > h2 { display: none; }
 
       .voucher-grid {
         display: grid;
@@ -207,7 +316,6 @@
         gap: 0;
         page-break-inside: avoid;
       }
-
       .voucher-card {
         border: 1.5px dashed #999;
         border-radius: 0;
@@ -220,46 +328,87 @@
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>⚡ TipMe</h1>
-    <p>Create printable Lightning tip vouchers</p>
+<!-- Single-page form -->
+<div class="wizard-card" id="wizard-card">
+  <div class="card-title">⚡ TipMe</div>
+  <div class="card-subtitle">Generate Lightning vouchers with a built-in expiry and automatic refund if unused.</div>
+
+  <!-- Section 1: Count -->
+  <hr class="section-divider">
+  <div class="section-label">How many vouchers?</div>
+  <div class="section-hint">Choose how many vouchers to generate. A small fee applies per voucher created.</div>
+  <div class="pills" id="count-pills">
+    <button class="pill" data-count="5"  onclick="selectCount(5,  this)">5</button>
+    <button class="pill selected" data-count="10" onclick="selectCount(10, this)">10</button>
+    <button class="pill" data-count="20" onclick="selectCount(20, this)">20</button>
+    <button class="pill" id="count-custom-pill" onclick="toggleCountCustom()">Custom</button>
   </div>
-  <div class="header-actions" id="header-actions" style="display:none">
-    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
-    <button class="btn-secondary" onclick="downloadPDF()">⬇️ Download PDF</button>
-    <button class="btn-primary" onclick="resetForm()">+ New Batch</button>
+  <div class="expand" id="count-expand">
+    <input type="number" id="count-input" placeholder="e.g. 15" min="1" max="100" />
+    <div class="error-msg" id="count-error"></div>
   </div>
-</header>
 
-<!-- Creation form -->
-<section id="form-section">
-  <h2>Create Vouchers</h2>
-  <div id="form-error"></div>
+  <!-- Section 2: Expiry -->
+  <hr class="section-divider">
+  <div class="section-label">When should they expire?</div>
+  <div class="section-hint">Set how long each voucher remains valid after funding.</div>
+  <div class="pills" id="expiry-pills">
+    <button class="pill" data-expiry="10" onclick="selectExpiry(10, this)">10 days</button>
+    <button class="pill selected" data-expiry="30" onclick="selectExpiry(30, this)">30 days</button>
+    <button class="pill" data-expiry="90" onclick="selectExpiry(90, this)">90 days</button>
+    <button class="pill" id="expiry-custom-pill" onclick="toggleExpiryCustom()">Custom</button>
+  </div>
+  <div class="expand" id="expiry-expand">
+    <input type="number" id="expiry-input" placeholder="e.g. 60" min="1" max="3650" />
+    <div class="error-msg" id="expiry-error"></div>
+  </div>
 
-  <label for="address">Lightning Address</label>
-  <input id="address" type="email" placeholder="alice@getalby.com" autocomplete="off" />
+  <!-- Section 3: Return address -->
+  <hr class="section-divider">
+  <div class="section-label">Choose where unclaimed funds should go.</div>
+  <div class="section-hint">Select a charity to donate them to, or enter a Lightning address to receive the refund yourself.</div>
 
-  <label for="count">Number of Vouchers (1–100)</label>
-  <input id="count" type="number" value="1" min="1" max="100" />
-  <p class="field-hint">A small fee is charged per voucher to cover server costs.</p>
+  <div id="charity-section">
+    <div class="pills" id="charity-pills"></div>
+  </div>
 
-  <label for="expiry">Relative Expiry After Funding (days)</label>
-  <input id="expiry" type="number" value="30" min="1" max="3650" />
-  <p class="field-hint">The voucher expires this many days after the last payment.</p>
-
-  <button class="btn-primary" id="create-btn" onclick="createVouchers()" style="width:100%">
-    Generate Invoice
-  </button>
-</section>
+  <hr class="section-divider">
+  <div class="pills">
+    <button class="pill" id="pill-address" onclick="toggleAddressInput()">Enter a Lightning address</button>
+  </div>
+  <div class="expand" id="address-expand">
+    <input type="email" id="address-input" placeholder="alice@getalby.com" autocomplete="off" />
+  </div>
+  <div class="error-msg" id="address-error"></div>
+  <button class="btn-primary" id="address-submit-btn" onclick="addressSubmit()" style="display:none">Create Vouchers</button>
+</div>
 
 <!-- Invoice section -->
-<section id="invoice-section">
-  <h2>Pay to Create Vouchers</h2>
-  <p id="invoice-status-msg"></p>
+<section id="invoice-section" class="wizard-card">
+  <div class="card-title">⚡ Pay Voucher Creation Fee</div>
+  <div class="card-subtitle">Scan or copy the invoice below to create your vouchers.</div>
+  <hr class="section-divider">
+  <div class="summary-grid" id="invoice-summary">
+    <div>
+      <div class="section-label">Vouchers</div>
+      <div class="summary-val" id="summary-count"></div>
+    </div>
+    <div>
+      <div class="section-label">Expiry</div>
+      <div class="summary-val" id="summary-expiry"></div>
+    </div>
+    <div>
+      <div class="section-label">Refund to</div>
+      <div class="summary-val" id="summary-address" title=""></div>
+    </div>
+  </div>
+  <hr class="section-divider">
   <div id="invoice-qr"></div>
-  <div id="invoice-string" title="Click to copy" onclick="copyInvoice()"></div>
-  <p class="copy-hint">Tap invoice string to copy · Scan QR with your Lightning wallet</p>
+  <p id="invoice-status-msg"></p>
+  <div class="invoice-actions">
+    <a id="btn-open-wallet" class="btn-wallet" href="#">Open in Wallet</a>
+    <button class="btn-copy" onclick="copyInvoice()">Copy</button>
+  </div>
   <div id="poll-status">
     <span class="spinner"></span> Waiting for payment…
   </div>
@@ -267,85 +416,216 @@
 
 <!-- Voucher cards -->
 <section id="vouchers-section">
+  <div class="header-actions" id="header-actions" style="display:none">
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+    <button class="btn-secondary" onclick="downloadPDF()">⬇️ Download PDF</button>
+    <button class="btn-new" onclick="resetWizard()">+ New Batch</button>
+  </div>
   <h2 id="vouchers-title"></h2>
   <div class="voucher-grid" id="voucher-grid"></div>
 </section>
 
 <script>
-// ── State ───────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedCount = 10;   // default matches pre-selected pill
+let selectedExpiry = 30;  // default matches pre-selected pill
+let selectedAddress = '';
+let addressInputOpen = false;
+let countCustomOpen = false;
+let expiryCustomOpen = false;
+
+// Invoice/polling
 let currentPaymentHash = null;
 let currentInvoice = null;
 let pollTimer = null;
 let currentVouchers = [];
 
-// ── Form submission ──────────────────────────────────────────────────────────
-async function createVouchers() {
-  const address = document.getElementById('address').value.trim();
-  const count = parseInt(document.getElementById('count').value, 10);
-  const expiryDays = parseInt(document.getElementById('expiry').value, 10);
-  const errEl = document.getElementById('form-error');
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  fetch('/api/config')
+    .then(r => r.json())
+    .then(data => renderCharities(data.charities))
+    .catch(() => {});
 
-  errEl.style.display = 'none';
+  document.getElementById('address-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addressSubmit();
+  });
+});
 
-  if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
-    showFormError('Please enter a valid Lightning address.');
+function renderCharities(list) {
+  if (!list || list.length === 0) {
+    document.getElementById('charity-section').style.display = 'none';
     return;
   }
-  if (!count || count < 1 || count > 100) {
-    showFormError('Count must be between 1 and 100.');
+  const container = document.getElementById('charity-pills');
+  list.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'pill charity-pill';
+    const logoHtml = c.logo_url
+      ? `<img class="charity-logo" src="${escHtml(c.logo_url)}" alt="" />`
+      : '';
+    const linkHtml = c.web_url
+      ? `<a class="charity-link" href="${escHtml(c.web_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Visit ${escHtml(c.name)}">↗</a>`
+      : '';
+    btn.innerHTML = `${logoHtml}<span>${escHtml(c.name)}</span>${linkHtml}`;
+    btn.addEventListener('click', () => {
+      selectedAddress = c.address;
+      submitWizard();
+    });
+    container.appendChild(btn);
+  });
+}
+
+// ── Count selection ───────────────────────────────────────────────────────────
+function selectCount(n, el) {
+  selectedCount = n;
+  document.querySelectorAll('#count-pills .pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  if (countCustomOpen) {
+    countCustomOpen = false;
+    document.getElementById('count-expand').classList.remove('open');
+    document.getElementById('count-error').textContent = '';
+  }
+}
+
+function toggleCountCustom() {
+  countCustomOpen = !countCustomOpen;
+  document.getElementById('count-expand').classList.toggle('open', countCustomOpen);
+  if (countCustomOpen) {
+    document.querySelectorAll('#count-pills .pill').forEach(p => p.classList.remove('selected'));
+    document.getElementById('count-custom-pill').classList.add('selected');
+    setTimeout(() => document.getElementById('count-input').focus(), 280);
+  } else {
+    document.getElementById('count-error').textContent = '';
+    // Restore preset selection if applicable
+    const preset = document.querySelector(`#count-pills [data-count="${selectedCount}"]`);
+    document.querySelectorAll('#count-pills .pill').forEach(p => p.classList.remove('selected'));
+    if (preset) preset.classList.add('selected');
+    else document.getElementById('count-custom-pill').classList.add('selected');
+  }
+}
+
+// ── Expiry selection ──────────────────────────────────────────────────────────
+function selectExpiry(days, el) {
+  selectedExpiry = days;
+  document.querySelectorAll('#expiry-pills .pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  if (expiryCustomOpen) {
+    expiryCustomOpen = false;
+    document.getElementById('expiry-expand').classList.remove('open');
+    document.getElementById('expiry-error').textContent = '';
+  }
+}
+
+function toggleExpiryCustom() {
+  expiryCustomOpen = !expiryCustomOpen;
+  document.getElementById('expiry-expand').classList.toggle('open', expiryCustomOpen);
+  if (expiryCustomOpen) {
+    document.querySelectorAll('#expiry-pills .pill').forEach(p => p.classList.remove('selected'));
+    document.getElementById('expiry-custom-pill').classList.add('selected');
+    setTimeout(() => document.getElementById('expiry-input').focus(), 280);
+  } else {
+    document.getElementById('expiry-error').textContent = '';
+    const preset = document.querySelector(`#expiry-pills [data-expiry="${selectedExpiry}"]`);
+    document.querySelectorAll('#expiry-pills .pill').forEach(p => p.classList.remove('selected'));
+    if (preset) preset.classList.add('selected');
+    else document.getElementById('expiry-custom-pill').classList.add('selected');
+  }
+}
+
+// ── Address ───────────────────────────────────────────────────────────────────
+function toggleAddressInput() {
+  addressInputOpen = !addressInputOpen;
+  document.getElementById('address-expand').classList.toggle('open', addressInputOpen);
+  document.getElementById('address-submit-btn').style.display = addressInputOpen ? 'inline-block' : 'none';
+  document.getElementById('pill-address').classList.toggle('selected', addressInputOpen);
+  if (addressInputOpen) {
+    setTimeout(() => document.getElementById('address-input').focus(), 280);
+  }
+}
+
+function addressSubmit() {
+  const val = document.getElementById('address-input').value.trim();
+  const errEl = document.getElementById('address-error');
+  if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+    errEl.textContent = 'Please enter a valid Lightning address.';
     return;
   }
+  errEl.textContent = '';
+  selectedAddress = val;
+  submitWizard();
+}
 
-  const btn = document.getElementById('create-btn');
-  btn.disabled = true;
-  btn.textContent = 'Creating…';
+// ── Submit ────────────────────────────────────────────────────────────────────
+async function submitWizard() {
+  // If custom is open, read from the input at submit time.
+  let count = selectedCount;
+  if (countCustomOpen) {
+    const val = parseInt(document.getElementById('count-input').value, 10);
+    if (!val || val < 1 || val > 100) {
+      document.getElementById('count-error').textContent = 'Enter a number between 1 and 100.';
+      return;
+    }
+    document.getElementById('count-error').textContent = '';
+    count = val;
+  }
 
+  let expiry = selectedExpiry;
+  if (expiryCustomOpen) {
+    const val = parseInt(document.getElementById('expiry-input').value, 10);
+    if (!val || val < 1 || val > 3650) {
+      document.getElementById('expiry-error').textContent = 'Enter a number between 1 and 3650.';
+      return;
+    }
+    document.getElementById('expiry-error').textContent = '';
+    expiry = val;
+  }
+
+  document.getElementById('wizard-card').style.display = 'none';
   try {
     const res = await fetch('/api/vouchers/invoice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lightning_address: address,
+        lightning_address: selectedAddress,
         count: count,
-        expiry_seconds: expiryDays * 86400
+        expiry_seconds: expiry * 86400
       })
     });
     const data = await res.json();
     if (!res.ok || data.error) {
-      showFormError(data.error || 'Request failed.');
+      document.getElementById('wizard-card').style.display = 'block';
+      alert(data.error || 'Request failed.');
       return;
     }
-    showInvoice(data.invoice, data.payment_hash, data.fee_sats, count);
+    showInvoice(data.invoice, data.payment_hash, data.fee_sats, count, expiry);
   } catch (e) {
-    showFormError('Network error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Generate Invoice';
+    document.getElementById('wizard-card').style.display = 'block';
+    alert('Network error: ' + e.message);
   }
 }
 
-function showFormError(msg) {
-  const el = document.getElementById('form-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-
 // ── Invoice display ──────────────────────────────────────────────────────────
-function showInvoice(invoice, paymentHash, feeSats, count) {
+function showInvoice(invoice, paymentHash, feeSats, count, expiry) {
   currentPaymentHash = paymentHash;
   currentInvoice = invoice;
 
-  document.getElementById('form-section').style.display = 'none';
+  document.getElementById('wizard-card').style.display = 'none';
   const sec = document.getElementById('invoice-section');
   sec.style.display = 'block';
+
+  // Populate summary
+  document.getElementById('summary-count').textContent = count + ' voucher' + (count === 1 ? '' : 's');
+  document.getElementById('summary-expiry').textContent = expiry + ' day' + (expiry === 1 ? '' : 's');
+  const addrEl = document.getElementById('summary-address');
+  addrEl.textContent = selectedAddress;
+  addrEl.title = selectedAddress;
 
   document.getElementById('invoice-status-msg').textContent =
     `Pay ${feeSats} sat${feeSats === 1 ? '' : 's'} to create ${count} voucher${count === 1 ? '' : 's'}.`;
 
-  // Invoice string
-  document.getElementById('invoice-string').textContent = invoice;
+  document.getElementById('btn-open-wallet').href = 'lightning:' + invoice;
 
-  // QR code
   const qrEl = document.getElementById('invoice-qr');
   qrEl.innerHTML = '';
   new QRCode(qrEl, {
@@ -355,17 +635,16 @@ function showInvoice(invoice, paymentHash, feeSats, count) {
     correctLevel: QRCode.CorrectLevel.M
   });
 
-  // Start polling
   startPolling(paymentHash);
 }
 
 function copyInvoice() {
   if (currentInvoice) {
     navigator.clipboard.writeText(currentInvoice).catch(() => {});
-    const el = document.getElementById('invoice-string');
-    const orig = el.textContent;
-    el.textContent = '✓ Copied!';
-    setTimeout(() => { el.textContent = orig; }, 1500);
+    const btn = document.querySelector('.btn-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
   }
 }
 
@@ -390,7 +669,6 @@ async function pollStatus(paymentHash) {
       document.getElementById('poll-status').innerHTML =
         '⚠️ Invoice expired. <a href="/" style="color:#f7931a">Start over</a>';
     }
-    // else still 'pending' — keep polling
   } catch (e) {
     // Network hiccup — keep polling
   }
@@ -444,9 +722,6 @@ async function buildCard(v, idx) {
     </div>
   `;
 
-  // Render QR codes after card is in the DOM tree (QRCode needs a real element).
-  // QR codes encode the info page URLs so a regular phone camera opens a
-  // human-readable page; Lightning wallets detect the ?lightning= param.
   setTimeout(() => {
     new QRCode(document.getElementById('qr-pay-' + idx), {
       text: v.pay_info_url,
@@ -480,7 +755,7 @@ async function downloadPDF() {
   const margin = 10;
   const cardW = (pageW - margin * 3) / 2;
   const cardH = 115;
-  const qrMM = 48; // QR size in mm
+  const qrMM = 48;
 
   let col = 0, row = 0;
   let pageNum = 0;
@@ -491,7 +766,6 @@ async function downloadPDF() {
     const cardX = margin + col * (cardW + margin);
     const cardY = margin + row * (cardH + margin);
 
-    // New page if needed (after first card placement).
     if (i > 0 && col === 0 && row === 0) {
       doc.addPage();
       pageNum++;
@@ -508,19 +782,16 @@ async function downloadPDF() {
 }
 
 async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
-  // Border
   doc.setDrawColor(150);
   doc.setLineDashPattern([2, 2], 0);
   doc.setLineWidth(0.5);
   doc.rect(x, y, w, h);
   doc.setLineDashPattern([], 0);
 
-  // Title
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('TipMe Voucher', x + w / 2, y + 8, { align: 'center' });
 
-  // Meta
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.text('Address: ' + v.lightning_address, x + 4, y + 15);
@@ -531,7 +802,6 @@ async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
   const relDays = Math.round(v.relative_expiry_seconds / 86400);
   doc.text(`Expires: ${absDate}  (or ${relDays}d after last tip)`, x + 4, y + 21);
 
-  // QR codes
   const payDataURL = await getQRDataURL(v.pay_info_url, 256);
   const withDataURL = await getQRDataURL(v.withdraw_info_url, 256);
 
@@ -542,14 +812,12 @@ async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
   doc.addImage(payDataURL, 'PNG', qrX1, qrY, qrMM, qrMM);
   doc.addImage(withDataURL, 'PNG', qrX2, qrY, qrMM, qrMM);
 
-  // Labels
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.text('FUND', qrX1 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
   doc.text('CLAIM', qrX2 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
 }
 
-// Generate a QR code off-screen and return a data URL.
 function getQRDataURL(text, size) {
   return new Promise(resolve => {
     const container = document.createElement('div');
@@ -563,7 +831,6 @@ function getQRDataURL(text, size) {
       correctLevel: QRCode.CorrectLevel.M
     });
 
-    // qrcodejs renders asynchronously; wait a tick then grab the image src.
     setTimeout(() => {
       const img = container.querySelector('img');
       const canvas = container.querySelector('canvas');
@@ -576,26 +843,48 @@ function getQRDataURL(text, size) {
 }
 
 // ── Reset ────────────────────────────────────────────────────────────────────
-function resetForm() {
+function resetWizard() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   currentPaymentHash = null;
   currentInvoice = null;
   currentVouchers = [];
+  selectedAddress = '';
+  selectedCount = 10;
+  selectedExpiry = 30;
+  addressInputOpen = false;
+  countCustomOpen = false;
+  expiryCustomOpen = false;
 
   document.getElementById('vouchers-section').style.display = 'none';
   document.getElementById('invoice-section').style.display = 'none';
   document.getElementById('header-actions').style.display = 'none';
-  document.getElementById('form-section').style.display = 'block';
-  document.getElementById('form-error').style.display = 'none';
   document.getElementById('voucher-grid').innerHTML = '';
   document.getElementById('poll-status').innerHTML =
     '<span class="spinner"></span> Waiting for payment…';
-}
 
-// Allow Enter key in the form fields to submit.
-document.querySelectorAll('#form-section input').forEach(el => {
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') createVouchers(); });
-});
+  // Reset count pills
+  document.querySelectorAll('#count-pills .pill').forEach(p => p.classList.remove('selected'));
+  document.querySelector('#count-pills [data-count="10"]').classList.add('selected');
+  document.getElementById('count-input').value = '';
+  document.getElementById('count-error').textContent = '';
+  document.getElementById('count-expand').classList.remove('open');
+
+  // Reset expiry pills
+  document.querySelectorAll('#expiry-pills .pill').forEach(p => p.classList.remove('selected'));
+  document.querySelector('#expiry-pills [data-expiry="30"]').classList.add('selected');
+  document.getElementById('expiry-input').value = '';
+  document.getElementById('expiry-error').textContent = '';
+  document.getElementById('expiry-expand').classList.remove('open');
+
+  // Reset address
+  document.getElementById('address-input').value = '';
+  document.getElementById('address-error').textContent = '';
+  document.getElementById('address-expand').classList.remove('open');
+  document.getElementById('address-submit-btn').style.display = 'none';
+  document.getElementById('pill-address').classList.remove('selected');
+
+  document.getElementById('wizard-card').style.display = 'block';
+}
 </script>
 </body>
 </html>
