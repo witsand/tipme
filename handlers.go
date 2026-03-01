@@ -10,7 +10,9 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -149,6 +151,8 @@ func handleVoucherStatus(w http.ResponseWriter, r *http.Request) {
 	type voucherResp struct {
 		LNURLPay          string `json:"lnurl_pay"`
 		LNURLWithdraw     string `json:"lnurl_withdraw"`
+		PayInfoURL        string `json:"pay_info_url"`
+		WithdrawInfoURL   string `json:"withdraw_info_url"`
 		LightningAddress  string `json:"lightning_address"`
 		AbsoluteExpiry    string `json:"absolute_expiry"`
 		RelativeExpirySec int64  `json:"relative_expiry_seconds"`
@@ -172,10 +176,12 @@ func handleVoucherStatus(w http.ResponseWriter, r *http.Request) {
 
 		absExpiry := v.CreatedAt.Add(time.Duration(cfg.VoucherAbsoluteExpirySecs) * time.Second)
 		resp = append(resp, voucherResp{
-			LNURLPay:          lnurlPay,
-			LNURLWithdraw:     lnurlWith,
-			LightningAddress:  v.LightningAddress,
-			AbsoluteExpiry:    absExpiry.UTC().Format(time.RFC3339),
+			LNURLPay:         lnurlPay,
+			LNURLWithdraw:    lnurlWith,
+			PayInfoURL:       fmt.Sprintf("%s/pay/info?lightning=%s", cfg.BaseURL, lnurlPay),
+			WithdrawInfoURL:  fmt.Sprintf("%s/withdraw/info?lightning=%s", cfg.BaseURL, lnurlWith),
+			LightningAddress: v.LightningAddress,
+			AbsoluteExpiry:   absExpiry.UTC().Format(time.RFC3339),
 			RelativeExpirySec: v.ExpirySeconds,
 		})
 	}
@@ -201,13 +207,17 @@ func handleLNURLPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	payURL := fmt.Sprintf("%s/pay/%s", cfg.BaseURL, payID)
+	lnurlEncoded, _ := EncodeLNURL(payURL)
 	callbackURL := fmt.Sprintf("%s/pay/%s/callback", cfg.BaseURL, payID)
+	infoURL := fmt.Sprintf("%s/pay/info?lightning=%s", cfg.BaseURL, lnurlEncoded)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tag":         "payRequest",
 		"callback":    callbackURL,
 		"minSendable": cfg.MinVoucherPayAmountSats * 1000,
 		"maxSendable": cfg.MaxVoucherPayAmountSats * 1000,
 		"metadata":    `[["text/plain","Tip via TipMe"]]`,
+		"url":         infoURL,
 	})
 }
 
@@ -347,7 +357,10 @@ func handleLNURLWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	withURL := fmt.Sprintf("%s/withdraw/%s", cfg.BaseURL, withdrawID)
+	lnurlEncoded, _ := EncodeLNURL(withURL)
 	callbackURL := fmt.Sprintf("%s/withdraw/%s/callback", cfg.BaseURL, withdrawID)
+	infoURL := fmt.Sprintf("%s/withdraw/info?lightning=%s", cfg.BaseURL, lnurlEncoded)
 	balance := v.TotalPaidMsats
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -357,6 +370,7 @@ func handleLNURLWithdraw(w http.ResponseWriter, r *http.Request) {
 		"defaultDescription": "TipMe withdrawal",
 		"minWithdrawable":    balance,
 		"maxWithdrawable":    balance,
+		"url":                infoURL,
 	})
 }
 
@@ -451,6 +465,7 @@ func runRefundJob(ctx context.Context) error {
 
 	log.Printf("refund job: found %d expired voucher(s) with balance", len(expired))
 
+
 	for _, v := range expired {
 		func(v *Voucher) {
 			log.Printf("refund job: refunding %d msats to %s (pay_id=%s)",
@@ -484,3 +499,226 @@ func runRefundJob(ctx context.Context) error {
 	}
 	return nil
 }
+
+// ── Pay Info Page ────────────────────────────────────────────────────────────
+
+func handlePayInfo(w http.ResponseWriter, r *http.Request) {
+	lightning := r.URL.Query().Get("lightning")
+	if lightning == "" {
+		http.Error(w, "missing lightning parameter", http.StatusBadRequest)
+		return
+	}
+	rawURL, err := DecodeLNURL(lightning)
+	if err != nil {
+		http.Error(w, "invalid LNURL: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		http.Error(w, "invalid URL in LNURL", http.StatusBadRequest)
+		return
+	}
+	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(segments) < 2 || segments[0] != "pay" {
+		http.Error(w, "not a pay LNURL", http.StatusBadRequest)
+		return
+	}
+	payID := segments[1]
+
+	v, err := database.GetVoucherByPayID(payID)
+	if err != nil {
+		http.Error(w, "voucher not found", http.StatusNotFound)
+		return
+	}
+	invoices, err := database.GetPaidInvoicesByPayID(payID)
+	if err != nil {
+		log.Printf("GetPaidInvoicesByPayID: %v", err)
+	}
+
+	isActive := v.IsActive()
+	balanceSats := v.TotalPaidMsats / 1000
+
+	badgeClass, badgeText := "badge-active", "Active"
+	if !isActive {
+		badgeClass, badgeText = "badge-inactive", "Expired / Claimed"
+	}
+
+	var timeRemainingHTML string
+	if isActive {
+		now := time.Now()
+		absExpiry := v.CreatedAt.Add(time.Duration(cfg.VoucherAbsoluteExpirySecs) * time.Second)
+		effectiveExpiry := absExpiry
+		if v.LastFundedAt != nil {
+			relExpiry := v.LastFundedAt.Add(time.Duration(v.ExpirySeconds) * time.Second)
+			if relExpiry.Before(effectiveExpiry) {
+				effectiveExpiry = relExpiry
+			}
+		}
+		remaining := effectiveExpiry.Sub(now)
+		days := int(remaining.Hours()) / 24
+		hours := int(remaining.Hours()) % 24
+		var remainStr string
+		if days > 0 {
+			remainStr = fmt.Sprintf("%dd %dh", days, hours)
+		} else {
+			remainStr = fmt.Sprintf("%dh", hours)
+		}
+		timeRemainingHTML = fmt.Sprintf(`<div><div class="stat-label">Expires in</div><div class="stat-value">%s</div></div>`, remainStr)
+	}
+
+	var txHTML string
+	if len(invoices) > 0 {
+		var rows strings.Builder
+		for _, inv := range invoices {
+			rows.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%d sats</td></tr>",
+				inv.PaidAt.UTC().Format("2 Jan 2006 15:04 UTC"),
+				inv.CreditedMsats/1000,
+			))
+		}
+		txHTML = fmt.Sprintf(`<hr><div class="section-label">Funding History</div><table><thead><tr><th>Date</th><th>Amount</th></tr></thead><tbody>%s</tbody></table>`, rows.String())
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, payInfoHTML, badgeClass, badgeText, balanceSats, timeRemainingHTML, txHTML, lightning)
+}
+
+// ── Withdraw Info Page ───────────────────────────────────────────────────────
+
+func handleWithdrawInfo(w http.ResponseWriter, r *http.Request) {
+	lightning := r.URL.Query().Get("lightning")
+	if lightning == "" {
+		http.Error(w, "missing lightning parameter", http.StatusBadRequest)
+		return
+	}
+	rawURL, err := DecodeLNURL(lightning)
+	if err != nil {
+		http.Error(w, "invalid LNURL: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		http.Error(w, "invalid URL in LNURL", http.StatusBadRequest)
+		return
+	}
+	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(segments) < 2 || segments[0] != "withdraw" {
+		http.Error(w, "not a withdraw LNURL", http.StatusBadRequest)
+		return
+	}
+	withdrawID := segments[1]
+
+	v, err := database.GetVoucherByWithdrawID(withdrawID)
+	if err != nil {
+		http.Error(w, "voucher not found", http.StatusNotFound)
+		return
+	}
+
+	balanceSats := v.TotalPaidMsats / 1000
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, withdrawInfoHTML, balanceSats, lightning)
+}
+
+// ── HTML templates ───────────────────────────────────────────────────────────
+
+const payInfoHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TipMe Voucher</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#111;padding:1rem}
+.card{max-width:440px;margin:1rem auto;background:#fff;border-radius:14px;padding:1.5rem;box-shadow:0 2px 16px rgba(0,0,0,.09)}
+h1{font-size:1.25rem;margin-bottom:1rem}
+.badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.82rem;font-weight:600}
+.badge-active{background:#dcfce7;color:#16a34a}
+.badge-inactive{background:#fee2e2;color:#dc2626}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.25rem 0}
+.stat-label{font-size:.75rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.stat-value{font-size:1.5rem;font-weight:700}
+.orange{color:#f7931a}
+hr{border:none;border-top:1px solid #eee;margin:1.25rem 0}
+.section-label{font-size:.75rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+table{width:100%%;border-collapse:collapse;font-size:.88rem;margin-top:.5rem}
+th{text-align:left;color:#888;font-weight:600;padding:.35rem 0;border-bottom:1px solid #eee}
+td{padding:.4rem 0;border-bottom:1px solid #f5f5f5}
+.qr-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin-top:1.25rem}
+.qr-hint{font-size:.82rem;color:#666;text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>⚡ TipMe Voucher</h1>
+<span class="badge %s">%s</span>
+<div class="stats">
+<div><div class="stat-label">Balance</div><div class="stat-value orange">%d sats</div></div>
+%s
+</div>
+%s
+<hr>
+<div class="qr-wrap">
+<div id="qr"></div>
+<p class="qr-hint">Scan with a Lightning wallet to fund this voucher</p>
+</div>
+</div>
+<script>
+new QRCode(document.getElementById('qr'),{text:%q,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
+</script>
+</body>
+</html>`
+
+const withdrawInfoHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim Your Sats</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#111;padding:1rem}
+.card{max-width:440px;margin:1rem auto;background:#fff;border-radius:14px;padding:1.5rem;box-shadow:0 2px 16px rgba(0,0,0,.09)}
+h1{font-size:1.25rem;margin-bottom:.25rem}
+.balance{font-size:2.5rem;font-weight:800;color:#f7931a;margin:.75rem 0 1.25rem}
+.step{display:flex;gap:1rem;margin-bottom:1.1rem;align-items:flex-start}
+.step-num{background:#f7931a;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;margin-top:2px}
+.step-text{line-height:1.5;font-size:.95rem}
+.step-text strong{display:block;font-size:1rem;margin-bottom:2px}
+a{color:#f7931a;text-decoration:none;font-weight:600}
+hr{border:none;border-top:1px solid #eee;margin:1.25rem 0}
+.qr-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.qr-hint{font-size:.82rem;color:#666;text-align:center}
+.note{font-size:.82rem;color:#666;background:#fef9ec;border:1px solid #fde68a;padding:.75rem;border-radius:8px;margin-top:1.25rem}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>💸 Claim Your Sats</h1>
+<p style="color:#666;font-size:.9rem">This voucher is worth:</p>
+<div class="balance">%d sats</div>
+<div class="step">
+<div class="step-num">1</div>
+<div class="step-text"><strong>Download Blink Wallet</strong>Get the free <a href="https://blink.sv" target="_blank">Blink</a> app from <a href="https://blink.sv" target="_blank">blink.sv</a> — available on the App Store and Google Play.</div>
+</div>
+<div class="step">
+<div class="step-num">2</div>
+<div class="step-text"><strong>Create a free account</strong>Sign up with just your phone number. No ID or bank account needed.</div>
+</div>
+<div class="step">
+<div class="step-num">3</div>
+<div class="step-text"><strong>Scan the QR code below</strong>In Blink, tap <strong>Receive</strong> then use the in-app scanner to scan this QR code. Your sats will arrive instantly.</div>
+</div>
+<hr>
+<div class="qr-wrap">
+<div id="qr"></div>
+<p class="qr-hint">Scan with Blink or any Lightning wallet to claim your sats</p>
+</div>
+<div class="note">⚠️ This voucher can only be claimed once. Have your wallet ready before scanning.</div>
+</div>
+<script>
+new QRCode(document.getElementById('qr'),{text:%q,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
+</script>
+</body>
+</html>`

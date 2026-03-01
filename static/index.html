@@ -445,15 +445,17 @@ async function buildCard(v, idx) {
   `;
 
   // Render QR codes after card is in the DOM tree (QRCode needs a real element).
+  // QR codes encode the info page URLs so a regular phone camera opens a
+  // human-readable page; Lightning wallets detect the ?lightning= param.
   setTimeout(() => {
     new QRCode(document.getElementById('qr-pay-' + idx), {
-      text: v.lnurl_pay,
+      text: v.pay_info_url,
       width: 140,
       height: 140,
       correctLevel: QRCode.CorrectLevel.M
     });
     new QRCode(document.getElementById('qr-withdraw-' + idx), {
-      text: v.lnurl_withdraw,
+      text: v.withdraw_info_url,
       width: 140,
       height: 140,
       correctLevel: QRCode.CorrectLevel.M
@@ -530,8 +532,8 @@ async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
   doc.text(`Expires: ${absDate}  (or ${relDays}d after last tip)`, x + 4, y + 21);
 
   // QR codes
-  const payDataURL = await getQRDataURL(v.lnurl_pay, 256);
-  const withDataURL = await getQRDataURL(v.lnurl_withdraw, 256);
+  const payDataURL = await getQRDataURL(v.pay_info_url, 256);
+  const withDataURL = await getQRDataURL(v.withdraw_info_url, 256);
 
   const qrY = y + 26;
   const qrX1 = x + 5;

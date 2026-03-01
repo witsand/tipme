@@ -345,6 +345,35 @@ func (db *DB) GetExpiredVouchersForRefund() ([]*Voucher, error) {
 
 // ── Pay Invoices ──────────────────────────────────────────────────────────────
 
+// PayInvoice represents a single funding transaction for a voucher.
+type PayInvoice struct {
+	PayID         string
+	AmountMsats   int64
+	CreditedMsats int64
+	PaidAt        time.Time
+}
+
+func (db *DB) GetPaidInvoicesByPayID(payID string) ([]*PayInvoice, error) {
+	rows, err := db.Query(
+		`SELECT pay_id, amount_msats, credited_msats, paid_at
+		 FROM pay_invoices WHERE pay_id=? AND paid=1 ORDER BY paid_at`,
+		payID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []*PayInvoice
+	for rows.Next() {
+		var inv PayInvoice
+		if err := rows.Scan(&inv.PayID, &inv.AmountMsats, &inv.CreditedMsats, &inv.PaidAt); err != nil {
+			return nil, err
+		}
+		result = append(result, &inv)
+	}
+	return result, rows.Err()
+}
+
 func (db *DB) InsertPayInvoice(id, payID, paymentHash string, amountMsats, creditedMsats int64) error {
 	_, err := db.Exec(
 		`INSERT INTO pay_invoices (id, pay_id, payment_hash, amount_msats, credited_msats)

@@ -74,6 +74,32 @@ func convertBits(data []byte, fromBits, toBits uint, pad bool) ([]byte, error) {
 	return result, nil
 }
 
+// DecodeLNURL decodes a bech32 LNURL string back to a plain URL.
+func DecodeLNURL(lnurl string) (string, error) {
+	lnurl = strings.ToLower(strings.TrimSpace(lnurl))
+	if !strings.HasPrefix(lnurl, "lnurl1") {
+		return "", fmt.Errorf("missing lnurl1 prefix")
+	}
+	data := lnurl[6:] // strip HRP + separator "lnurl1"
+	var vals []byte
+	for _, c := range data {
+		idx := strings.IndexRune(bech32Charset, c)
+		if idx < 0 {
+			return "", fmt.Errorf("invalid bech32 character: %q", c)
+		}
+		vals = append(vals, byte(idx))
+	}
+	if len(vals) < 6 {
+		return "", fmt.Errorf("lnurl too short")
+	}
+	vals = vals[:len(vals)-6] // strip 6-character checksum
+	result, err := convertBits(vals, 5, 8, false)
+	if err != nil {
+		return "", fmt.Errorf("decode bits: %w", err)
+	}
+	return string(result), nil
+}
+
 // EncodeLNURL bech32-encodes a URL as an LNURL string (uppercase).
 func EncodeLNURL(rawURL string) (string, error) {
 	converted, err := convertBits([]byte(rawURL), 8, 5, true)

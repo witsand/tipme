@@ -94,8 +94,10 @@ func main() {
 	mux.HandleFunc("GET /{$}", serveIndex)
 	mux.HandleFunc("POST /api/vouchers/invoice", handleCreateInvoice)
 	mux.HandleFunc("GET /api/vouchers/status/{payment_hash}", handleVoucherStatus)
+	mux.HandleFunc("GET /pay/info", handlePayInfo)
 	mux.HandleFunc("GET /pay/{pay_id}/callback", handleLNURLPayCallback)
 	mux.HandleFunc("GET /pay/{pay_id}", handleLNURLPay)
+	mux.HandleFunc("GET /withdraw/info", handleWithdrawInfo)
 	mux.HandleFunc("GET /withdraw/{withdraw_id}/callback", handleLNURLWithdrawCallback)
 	mux.HandleFunc("GET /withdraw/{withdraw_id}", handleLNURLWithdraw)
 
