@@ -204,8 +204,8 @@ func handleLNURLPay(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tag":         "payRequest",
 		"callback":    callbackURL,
-		"minSendable": 100000,   // 100 sats in msats
-		"maxSendable": 1000000000, // 1,000,000 sats in msats
+		"minSendable": cfg.MinVoucherPayAmountSats * 1000,
+		"maxSendable": cfg.MaxVoucherPayAmountSats * 1000,
 		"metadata":    `[["text/plain","Tip via TipMe"]]`,
 	})
 }
@@ -238,10 +238,7 @@ func handleLNURLPayCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculate fee.
-	feeMsats := int64(math.Max(
-		float64(cfg.FundingFeeMinMsats),
-		math.Floor(float64(amountMsats)*cfg.FundingFeePercent),
-	))
+	feeMsats := int64(float64(cfg.FundingFeeMinMsats) + math.Floor(float64(amountMsats)*cfg.FundingFeePercent))
 	creditedMsats := amountMsats - feeMsats
 	if creditedMsats <= 0 {
 		lnurlError(w, "amount too small to cover fee")

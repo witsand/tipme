@@ -22,6 +22,8 @@ type Config struct {
 	MaxVouchersPerRequest     int
 	VoucherAbsoluteExpirySecs int64
 	DefaultRelativeExpirySecs int64
+	MinVoucherPayAmountSats   int64
+	MaxVoucherPayAmountSats   int64
 }
 
 var cfg Config
@@ -37,9 +39,11 @@ func loadConfig() {
 	cfg.FeePerVoucherSats = envInt64("FEE_PER_VOUCHER_SATS", 10)
 	cfg.FundingFeeMinMsats = envInt64("FUNDING_FEE_MIN_MSATS", 2000)
 	cfg.FundingFeePercent = envFloat64("FUNDING_FEE_PERCENT", 0.004)
-	cfg.MaxVouchersPerRequest = int(envInt64("MAX_VOUCHERS_PER_REQUEST", 100))
+	cfg.MaxVouchersPerRequest = int(envInt64("MAX_VOUCHERS_PER_REQUEST", 10))
 	cfg.VoucherAbsoluteExpirySecs = envInt64("VOUCHER_ABSOLUTE_EXPIRY_SECS", 31536000)
 	cfg.DefaultRelativeExpirySecs = envInt64("DEFAULT_RELATIVE_EXPIRY_SECS", 2592000)
+	cfg.MinVoucherPayAmountSats = envInt64("MIN_VOUCHER_PAY_AMOUNT_SATS", 100)
+	cfg.MaxVoucherPayAmountSats = envInt64("MAX_VOUCHER_PAY_AMOUNT_SATS", 200000)
 }
 
 func envStr(key, def string) string {
@@ -95,8 +99,13 @@ func main() {
 	mux.HandleFunc("GET /withdraw/{withdraw_id}/callback", handleLNURLWithdrawCallback)
 	mux.HandleFunc("GET /withdraw/{withdraw_id}", handleLNURLWithdraw)
 
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		mux.ServeHTTP(w, r)
+	})
+
 	log.Printf("TipMe listening on :%s  base=%s", cfg.Port, cfg.BaseURL)
-	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
