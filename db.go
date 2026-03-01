@@ -343,6 +343,26 @@ func (db *DB) GetExpiredVouchersForRefund() ([]*Voucher, error) {
 	return scanVouchers(rows)
 }
 
+// ── Audit ─────────────────────────────────────────────────────────────────────
+
+type AuditStats struct {
+	TotalVoucherCount  int
+	FundedVoucherCount int
+	TotalLockedMsats   int64
+}
+
+func (db *DB) GetAuditStats() (*AuditStats, error) {
+	var s AuditStats
+	err := db.QueryRow(`
+		SELECT
+			COUNT(*),
+			SUM(CASE WHEN active=1 AND total_paid_msats>0 THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN active=1 THEN total_paid_msats ELSE 0 END), 0)
+		FROM vouchers
+	`).Scan(&s.TotalVoucherCount, &s.FundedVoucherCount, &s.TotalLockedMsats)
+	return &s, err
+}
+
 // ── Pay Invoices ──────────────────────────────────────────────────────────────
 
 // PayInvoice represents a single funding transaction for a voucher.

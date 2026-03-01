@@ -500,6 +500,47 @@ func runRefundJob(ctx context.Context) error {
 	return nil
 }
 
+// ── Admin Audit Page ─────────────────────────────────────────────────────────
+
+func handleAdmin(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	balanceMsats, blitziErr := blitziClient.GetBalance(ctx)
+	stats, dbErr := database.GetAuditStats()
+
+	balanceSats := balanceMsats / 1000
+
+	var blitziErrHTML, dbErrHTML string
+	if blitziErr != nil {
+		blitziErrHTML = fmt.Sprintf(`<p class="err">Blitzi error: %s</p>`, blitziErr.Error())
+		balanceSats = 0
+	}
+	if dbErr != nil {
+		dbErrHTML = fmt.Sprintf(`<p class="err">DB error: %s</p>`, dbErr.Error())
+	}
+
+	lockedSats, fundedCount, totalCount := int64(0), 0, 0
+	if stats != nil {
+		lockedSats = stats.TotalLockedMsats / 1000
+		fundedCount = stats.FundedVoucherCount
+		totalCount = stats.TotalVoucherCount
+	}
+
+	var solvencyHTML string
+	if blitziErr == nil && dbErr == nil {
+		diff := balanceSats - lockedSats
+		if diff >= 0 {
+			solvencyHTML = fmt.Sprintf(`<div class="badge-ok">✓ Solvent — %d sats surplus</div>`, diff)
+		} else {
+			solvencyHTML = fmt.Sprintf(`<div class="badge-warn">⚠ Shortfall of %d sats</div>`, -diff)
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, adminHTML, lockedSats, balanceSats, solvencyHTML, fundedCount, totalCount, blitziErrHTML, dbErrHTML)
+}
+
 // ── Pay Info Page ────────────────────────────────────────────────────────────
 
 func handlePayInfo(w http.ResponseWriter, r *http.Request) {
@@ -619,6 +660,54 @@ func handleWithdrawInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── HTML templates ───────────────────────────────────────────────────────────
+
+const adminHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TipMe Admin</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#111;padding:1rem}
+.card{max-width:520px;margin:1rem auto;background:#fff;border-radius:14px;padding:1.5rem;box-shadow:0 2px 16px rgba(0,0,0,.09)}
+h1{font-size:1.25rem;margin-bottom:1.5rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.stat{background:#f9f9f9;border-radius:10px;padding:1rem}
+.stat-label{font-size:.75rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-value{font-size:1.75rem;font-weight:800;color:#111}
+.stat-value.orange{color:#f7931a}
+.stat-value.blue{color:#3b82f6}
+hr{border:none;border-top:1px solid #eee;margin:1.25rem 0}
+.row{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;font-size:.92rem;border-bottom:1px solid #f5f5f5}
+.row:last-child{border-bottom:none}
+.label{color:#555}
+.badge-ok{display:inline-block;background:#dcfce7;color:#16a34a;padding:4px 14px;border-radius:20px;font-weight:600;font-size:.88rem;margin-top:1rem}
+.badge-warn{display:inline-block;background:#fef9ec;color:#b45309;border:1px solid #fde68a;padding:4px 14px;border-radius:20px;font-weight:600;font-size:.88rem;margin-top:1rem}
+.err{color:#dc2626;font-size:.85rem;margin-top:.25rem}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>⚡ TipMe Admin</h1>
+<div class="grid">
+<div class="stat">
+<div class="stat-label">Locked in Vouchers</div>
+<div class="stat-value orange">%d sats</div>
+</div>
+<div class="stat">
+<div class="stat-label">Blitzi Balance</div>
+<div class="stat-value blue">%d sats</div>
+</div>
+</div>
+%s
+<hr>
+<div class="row"><span class="label">Funded active vouchers</span><strong>%d</strong></div>
+<div class="row"><span class="label">Total vouchers (all time)</span><strong>%d</strong></div>
+%s%s
+</div>
+</body>
+</html>`
 
 const payInfoHTML = `<!DOCTYPE html>
 <html lang="en">

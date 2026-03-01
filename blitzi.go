@@ -91,6 +91,21 @@ func (c *BlitziClient) checkInvoicePaid(ctx context.Context, paymentHash string)
 	return status.Paid, nil
 }
 
+// GetBalance returns the current wallet balance from blitzi.
+func (c *BlitziClient) GetBalance(ctx context.Context) (int64, error) {
+	resp, err := c.do(ctx, http.MethodGet, "/balance", nil)
+	if err != nil {
+		return 0, err
+	}
+	var result struct {
+		BalanceMsats int64 `json:"balance_msats"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return 0, fmt.Errorf("decode balance: %w", err)
+	}
+	return result.BalanceMsats, nil
+}
+
 // PayInvoice asks blitzi to pay a BOLT-11 invoice.
 func (c *BlitziClient) PayInvoice(ctx context.Context, bolt11 string) error {
 	body, _ := json.Marshal(map[string]any{

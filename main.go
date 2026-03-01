@@ -92,6 +92,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", serveIndex)
+	mux.HandleFunc("GET /admin", handleAdmin)
 	mux.HandleFunc("POST /api/vouchers/invoice", handleCreateInvoice)
 	mux.HandleFunc("GET /api/vouchers/status/{payment_hash}", handleVoucherStatus)
 	mux.HandleFunc("GET /pay/info", handlePayInfo)
