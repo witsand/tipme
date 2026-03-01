@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -121,7 +122,21 @@ func (db *DB) createSchema() error {
 			return fmt.Errorf("exec %q: %w", s[:n], err)
 		}
 	}
+
+	// Migrations: add columns that may not exist on older DBs.
+	for _, col := range []string{
+		`ALTER TABLE vouchers ADD COLUMN deactivation_reason TEXT`,
+		`ALTER TABLE vouchers ADD COLUMN deactivated_msats INTEGER NOT NULL DEFAULT 0`,
+	} {
+		if _, err := db.Exec(col); err != nil && !isDuplicateColumn(err) {
+			return fmt.Errorf("migration %q: %w", col, err)
+		}
+	}
 	return nil
+}
+
+func isDuplicateColumn(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "duplicate column name")
 }
 
 // ── Voucher Creation Requests ────────────────────────────────────────────────
@@ -292,20 +307,20 @@ func CreditVoucherTx(tx *sql.Tx, payID string, creditedMsats int64, paymentHash 
 	return err
 }
 
-// DeactivateVoucherTx zeroes balance and marks active=0 inside a transaction.
-func DeactivateVoucherTx(tx *sql.Tx, payID string) error {
+// DeactivateVoucherTx zeroes balance, records reason and amount, marks active=0 inside a transaction.
+func DeactivateVoucherTx(tx *sql.Tx, payID, reason string, msats int64) error {
 	_, err := tx.Exec(
-		`UPDATE vouchers SET total_paid_msats=0, active=0 WHERE pay_id=?`,
-		payID,
+		`UPDATE vouchers SET total_paid_msats=0, active=0, deactivation_reason=?, deactivated_msats=? WHERE pay_id=?`,
+		reason, msats, payID,
 	)
 	return err
 }
 
-// DeactivateVoucher zeroes balance and marks active=0 (standalone, for refund job).
-func (db *DB) DeactivateVoucher(payID string) error {
+// DeactivateVoucher zeroes balance, records reason and amount, marks active=0 (standalone).
+func (db *DB) DeactivateVoucher(payID, reason string, msats int64) error {
 	_, err := db.Exec(
-		`UPDATE vouchers SET total_paid_msats=0, active=0 WHERE pay_id=?`,
-		payID,
+		`UPDATE vouchers SET total_paid_msats=0, active=0, deactivation_reason=?, deactivated_msats=? WHERE pay_id=?`,
+		reason, msats, payID,
 	)
 	return err
 }
@@ -314,7 +329,7 @@ func (db *DB) DeactivateVoucher(payID string) error {
 // Used when a refund payment definitively fails so the job retries next run.
 func (db *DB) ReactivateVoucher(payID string, balanceMsats int64) error {
 	_, err := db.Exec(
-		`UPDATE vouchers SET total_paid_msats=?, active=1 WHERE pay_id=?`,
+		`UPDATE vouchers SET total_paid_msats=?, active=1, deactivation_reason=NULL, deactivated_msats=0 WHERE pay_id=?`,
 		balanceMsats, payID,
 	)
 	return err
@@ -346,9 +361,13 @@ func (db *DB) GetExpiredVouchersForRefund() ([]*Voucher, error) {
 // ── Audit ─────────────────────────────────────────────────────────────────────
 
 type AuditStats struct {
-	TotalVoucherCount  int
-	FundedVoucherCount int
-	TotalLockedMsats   int64
+	TotalVoucherCount   int
+	FundedVoucherCount  int
+	TotalLockedMsats    int64
+	ClaimedCount        int
+	ClaimedMsats        int64
+	RefundedCount       int
+	RefundedMsats       int64
 }
 
 func (db *DB) GetAuditStats() (*AuditStats, error) {
@@ -357,9 +376,17 @@ func (db *DB) GetAuditStats() (*AuditStats, error) {
 		SELECT
 			COUNT(*),
 			SUM(CASE WHEN active=1 AND total_paid_msats>0 THEN 1 ELSE 0 END),
-			COALESCE(SUM(CASE WHEN active=1 THEN total_paid_msats ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN active=1 THEN total_paid_msats ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN deactivation_reason='claimed' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN deactivation_reason='claimed' THEN deactivated_msats ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN deactivation_reason='refunded' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN deactivation_reason='refunded' THEN deactivated_msats ELSE 0 END), 0)
 		FROM vouchers
-	`).Scan(&s.TotalVoucherCount, &s.FundedVoucherCount, &s.TotalLockedMsats)
+	`).Scan(
+		&s.TotalVoucherCount, &s.FundedVoucherCount, &s.TotalLockedMsats,
+		&s.ClaimedCount, &s.ClaimedMsats,
+		&s.RefundedCount, &s.RefundedMsats,
+	)
 	return &s, err
 }
 

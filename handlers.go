@@ -417,7 +417,7 @@ func handleLNURLWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 			// Unknown outcome — deactivate to prevent potential double-pay.
 			log.Printf("CRITICAL: withdraw payment outcome unknown for withdraw_id=%s (%d msats), deactivating to prevent double-pay: %v",
 				withdrawID, v.TotalPaidMsats, err)
-			if deactErr := database.DeactivateVoucher(payID); deactErr != nil {
+			if deactErr := database.DeactivateVoucher(payID, "unknown", v.TotalPaidMsats); deactErr != nil {
 				log.Printf("CRITICAL: failed to deactivate withdraw_id=%s after timeout: %v", withdrawID, deactErr)
 			}
 			lnurlError(w, "payment timed out")
@@ -440,7 +440,7 @@ func handleLNURLWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	if err := DeactivateVoucherTx(tx, payID); err != nil {
+	if err := DeactivateVoucherTx(tx, payID, "claimed", v.TotalPaidMsats); err != nil {
 		log.Printf("DeactivateVoucherTx: %v", err)
 		tx.Rollback()
 		log.Printf("CRITICAL: voucher %s paid out but not deactivated", payID)
@@ -473,7 +473,7 @@ func runRefundJob(ctx context.Context) error {
 
 			// Deactivate before paying to prevent double-payment if the
 			// payment succeeds but the HTTP response times out.
-			if err := database.DeactivateVoucher(v.PayID); err != nil {
+			if err := database.DeactivateVoucher(v.PayID, "refunded", v.TotalPaidMsats); err != nil {
 				log.Printf("refund job: DeactivateVoucher pay_id=%s: %v", v.PayID, err)
 				return
 			}
@@ -521,10 +521,15 @@ func handleAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lockedSats, fundedCount, totalCount := int64(0), 0, 0
+	claimedCount, claimedSats, refundedCount, refundedSats := 0, int64(0), 0, int64(0)
 	if stats != nil {
 		lockedSats = stats.TotalLockedMsats / 1000
 		fundedCount = stats.FundedVoucherCount
 		totalCount = stats.TotalVoucherCount
+		claimedCount = stats.ClaimedCount
+		claimedSats = stats.ClaimedMsats / 1000
+		refundedCount = stats.RefundedCount
+		refundedSats = stats.RefundedMsats / 1000
 	}
 
 	var solvencyHTML string
@@ -538,7 +543,13 @@ func handleAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, adminHTML, lockedSats, balanceSats, solvencyHTML, fundedCount, totalCount, blitziErrHTML, dbErrHTML)
+	fmt.Fprintf(w, adminHTML,
+		lockedSats, balanceSats, solvencyHTML,
+		fundedCount, totalCount,
+		claimedSats, claimedCount,
+		refundedSats, refundedCount,
+		blitziErrHTML, dbErrHTML,
+	)
 }
 
 // ── Pay Info Page ────────────────────────────────────────────────────────────
@@ -678,7 +689,10 @@ h1{font-size:1.25rem;margin-bottom:1.5rem}
 .stat-value{font-size:1.75rem;font-weight:800;color:#111}
 .stat-value.orange{color:#f7931a}
 .stat-value.blue{color:#3b82f6}
+.stat-value.green{color:#16a34a}
+.stat-value.purple{color:#7c3aed}
 hr{border:none;border-top:1px solid #eee;margin:1.25rem 0}
+.section-title{font-size:.75rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
 .row{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;font-size:.92rem;border-bottom:1px solid #f5f5f5}
 .row:last-child{border-bottom:none}
 .label{color:#555}
@@ -702,8 +716,22 @@ hr{border:none;border-top:1px solid #eee;margin:1.25rem 0}
 </div>
 %s
 <hr>
-<div class="row"><span class="label">Funded active vouchers</span><strong>%d</strong></div>
-<div class="row"><span class="label">Total vouchers (all time)</span><strong>%d</strong></div>
+<div class="section-title">Vouchers</div>
+<div class="row"><span class="label">Funded &amp; active</span><strong>%d</strong></div>
+<div class="row"><span class="label">Total (all time)</span><strong>%d</strong></div>
+<hr>
+<div class="grid">
+<div class="stat">
+<div class="stat-label">Claimed</div>
+<div class="stat-value green">%d sats</div>
+<div style="font-size:.8rem;color:#555;margin-top:2px">%d vouchers</div>
+</div>
+<div class="stat">
+<div class="stat-label">Refunded</div>
+<div class="stat-value purple">%d sats</div>
+<div style="font-size:.8rem;color:#555;margin-top:2px">%d vouchers</div>
+</div>
+</div>
 %s%s
 </div>
 </body>
