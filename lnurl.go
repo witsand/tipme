@@ -198,7 +198,7 @@ func RefundToLightningAddress(address string, amountMsats int64) error {
 		return fmt.Errorf("get invoice from callback: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	return blitziClient.PayInvoice(ctx, invoice)
 }

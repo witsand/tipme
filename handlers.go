@@ -444,16 +444,19 @@ func runRefundJob(ctx context.Context) error {
 			log.Printf("refund job: refunding %d msats to %s (pay_id=%s)",
 				v.TotalPaidMsats, v.LightningAddress, v.PayID)
 
-			if err := RefundToLightningAddress(v.LightningAddress, v.TotalPaidMsats); err != nil {
-				log.Printf("refund job: failed to refund pay_id=%s: %v", v.PayID, err)
-				// Don't deactivate if refund failed.
-				return
-			}
-
+			// Deactivate before paying to prevent double-payment if the
+			// payment succeeds but the HTTP response times out.
 			if err := database.DeactivateVoucher(v.PayID); err != nil {
 				log.Printf("refund job: DeactivateVoucher pay_id=%s: %v", v.PayID, err)
 				return
 			}
+
+			if err := RefundToLightningAddress(v.LightningAddress, v.TotalPaidMsats); err != nil {
+				log.Printf("CRITICAL: refund job: payment failed for already-deactivated pay_id=%s (%d msats owed to %s): %v",
+					v.PayID, v.TotalPaidMsats, v.LightningAddress, err)
+				return
+			}
+
 			log.Printf("refund job: successfully refunded and deactivated pay_id=%s", v.PayID)
 		}(v)
 	}
