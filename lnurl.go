@@ -190,6 +190,9 @@ func RefundToLightningAddress(address string, amountMsats int64) error {
 		amountMsats = params.MaxSendable // cap to max
 	}
 
+	// Round down to whole sats — some wallets reject sub-sat msats amounts.
+	amountMsats = (amountMsats / 1000) * 1000
+
 	invoice, err := GetInvoiceFromCallback(params.Callback, amountMsats)
 	if err != nil {
 		return fmt.Errorf("get invoice from callback: %w", err)
