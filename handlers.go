@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -398,8 +399,19 @@ func handleLNURLWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := blitziClient.PayInvoice(ctx, pr); err != nil {
-		log.Printf("PayInvoice withdraw (withdraw_id=%s): %v", withdrawID, err)
-		lnurlError(w, "payment failed")
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			// Unknown outcome — deactivate to prevent potential double-pay.
+			log.Printf("CRITICAL: withdraw payment outcome unknown for withdraw_id=%s (%d msats), deactivating to prevent double-pay: %v",
+				withdrawID, v.TotalPaidMsats, err)
+			if deactErr := database.DeactivateVoucher(payID); deactErr != nil {
+				log.Printf("CRITICAL: failed to deactivate withdraw_id=%s after timeout: %v", withdrawID, deactErr)
+			}
+			lnurlError(w, "payment timed out")
+		} else {
+			// Definitive failure — voucher stays active so the user can retry.
+			log.Printf("PayInvoice withdraw (withdraw_id=%s): %v", withdrawID, err)
+			lnurlError(w, "payment failed")
+		}
 		return
 	}
 
@@ -452,8 +464,18 @@ func runRefundJob(ctx context.Context) error {
 			}
 
 			if err := RefundToLightningAddress(v.LightningAddress, v.TotalPaidMsats); err != nil {
-				log.Printf("CRITICAL: refund job: payment failed for already-deactivated pay_id=%s (%d msats owed to %s): %v",
-					v.PayID, v.TotalPaidMsats, v.LightningAddress, err)
+				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+					// Unknown outcome — keep deactivated, flag for manual recovery.
+					log.Printf("CRITICAL: refund payment outcome unknown for pay_id=%s (%d msats owed to %s): %v",
+						v.PayID, v.TotalPaidMsats, v.LightningAddress, err)
+				} else {
+					// Definitive failure — restore voucher so the job retries next run.
+					log.Printf("refund job: payment failed for pay_id=%s, re-activating: %v", v.PayID, err)
+					if reErr := database.ReactivateVoucher(v.PayID, v.TotalPaidMsats); reErr != nil {
+						log.Printf("CRITICAL: refund job: failed to re-activate pay_id=%s (%d msats owed to %s): %v",
+							v.PayID, v.TotalPaidMsats, v.LightningAddress, reErr)
+					}
+				}
 				return
 			}
 

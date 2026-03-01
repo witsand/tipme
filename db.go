@@ -310,6 +310,16 @@ func (db *DB) DeactivateVoucher(payID string) error {
 	return err
 }
 
+// ReactivateVoucher restores a voucher's balance and marks it active again.
+// Used when a refund payment definitively fails so the job retries next run.
+func (db *DB) ReactivateVoucher(payID string, balanceMsats int64) error {
+	_, err := db.Exec(
+		`UPDATE vouchers SET total_paid_msats=?, active=1 WHERE pay_id=?`,
+		balanceMsats, payID,
+	)
+	return err
+}
+
 // GetExpiredVouchersForRefund returns active vouchers that have balance and have crossed
 // either their relative or absolute expiry boundary.
 func (db *DB) GetExpiredVouchersForRefund() ([]*Voucher, error) {
