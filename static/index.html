@@ -124,7 +124,6 @@
     }
     .expand input:focus { border-color: #f7931a; }
 
-
     /* Or divider */
     .or-divider {
       display: flex;
@@ -143,6 +142,7 @@
 
     /* CTA button */
     .btn-primary {
+      width: 100%;
       background: #f7931a;
       color: #fff;
       border: none;
@@ -227,6 +227,20 @@
     }
     .btn-copy:hover { background: #ebebeb; }
 
+    .btn-back {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 0.88rem;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+    .btn-back:hover { color: #555; }
+
     .spinner {
       display: inline-block;
       width: 18px; height: 18px;
@@ -241,88 +255,17 @@
 
     #poll-status { margin-top: 1rem; font-size: 0.9rem; color: #555; display: flex; align-items: center; justify-content: center; }
 
-    /* ── Voucher grid ── */
-    #vouchers-section { display: none; max-width: 960px; margin: 0 auto; }
-    #vouchers-section > h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+    /* ── Success section ── */
+    #success-section { display: none; }
 
-    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-
-    .btn-outline   { background: transparent; border: 2px solid #333; color: #333; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    .btn-secondary { background: #333; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    .btn-new       { background: #f7931a; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    .btn-outline:hover, .btn-secondary:hover, .btn-new:hover { opacity: 0.85; }
-
-    .voucher-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-    @media (max-width: 600px) {
-      .voucher-grid { grid-template-columns: 1fr; }
-    }
-
-    .voucher-card {
-      background: #fff;
-      border: 2px dashed #bbb;
-      border-radius: 10px;
-      padding: 1rem;
+    .instructions {
+      padding-left: 1.2rem;
       display: flex;
       flex-direction: column;
       gap: 0.4rem;
-    }
-    .voucher-card h3 {
-      text-align: center;
-      font-size: 1rem;
-      margin-bottom: 0.25rem;
-      letter-spacing: 0.04em;
-    }
-    .voucher-meta { font-size: 0.8rem; color: #444; }
-
-    .voucher-qrs {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
-      margin-top: 0.5rem;
-    }
-    .voucher-qr-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .voucher-qr-block canvas,
-    .voucher-qr-block img {
-      border: 1px solid #eee;
-      border-radius: 4px;
-    }
-    .voucher-qr-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-align: center;
-    }
-
-    /* ── Print styles ── */
-    @media print {
-      body { background: #fff; padding: 0; }
-      .wizard-card, #invoice-section, .header-actions { display: none !important; }
-      #vouchers-section { display: block !important; max-width: none; }
-      #vouchers-section > h2 { display: none; }
-
-      .voucher-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0;
-        page-break-inside: avoid;
-      }
-      .voucher-card {
-        border: 1.5px dashed #999;
-        border-radius: 0;
-        page-break-inside: avoid;
-        margin: 4mm;
-        padding: 6mm;
-      }
+      font-size: 0.88rem;
+      color: #333;
+      line-height: 1.5;
     }
   </style>
 </head>
@@ -414,22 +357,51 @@
   </div>
 </section>
 
-<!-- Voucher cards -->
-<section id="vouchers-section">
-  <div class="header-actions" id="header-actions" style="display:none">
-    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
-    <button class="btn-secondary" onclick="downloadPDF()">⬇️ Download PDF</button>
-    <button class="btn-new" onclick="resetWizard()">+ New Batch</button>
+<!-- Success section -->
+<div class="wizard-card" id="success-section" style="display:none">
+  <div class="card-title" id="success-title"></div>
+  <div class="card-subtitle">Your vouchers are ready to print.</div>
+  <hr class="section-divider">
+  <div class="summary-grid">
+    <div>
+      <div class="section-label">Vouchers</div>
+      <div class="summary-val" id="summary-count-s"></div>
+    </div>
+    <div>
+      <div class="section-label">Expiry</div>
+      <div class="summary-val" id="summary-expiry-s"></div>
+    </div>
+    <div>
+      <div class="section-label">Refund to</div>
+      <div class="summary-val" id="summary-address-s" title=""></div>
+    </div>
   </div>
-  <h2 id="vouchers-title"></h2>
-  <div class="voucher-grid" id="voucher-grid"></div>
-</section>
+  <hr class="section-divider">
+  <div class="section-label">For you — the creator</div>
+  <ol class="instructions">
+    <li>Download and print your vouchers (single-sided)</li>
+    <li>Cut along the dashed lines between vouchers</li>
+    <li>Fold each voucher along the dotted centre line</li>
+    <li>Apply glue to the three open edges to seal</li>
+    <li>Give one sealed voucher to each customer</li>
+  </ol>
+  <hr class="section-divider">
+  <div class="section-label">For the recipient</div>
+  <p class="section-hint">Scan the QR code on the front with any Lightning wallet to add a tip. Tear the voucher open to claim the sats inside.</p>
+  <hr class="section-divider">
+  <div class="invoice-actions">
+    <button class="btn-primary" onclick="downloadPDF()">⬇ Download PDF</button>
+    <button class="btn-copy" onclick="printPDF()">🖨 Print</button>
+  </div>
+  <button class="btn-back" onclick="resetWizard()" style="margin-top:1rem">+ New Batch</button>
+</div>
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let selectedCount = 10;   // default matches pre-selected pill
-let selectedExpiry = 30;  // default matches pre-selected pill
+let selectedCount = 10;
+let selectedExpiry = 30;
 let selectedAddress = '';
+let selectedCharity = null;
 let addressInputOpen = false;
 let countCustomOpen = false;
 let expiryCustomOpen = false;
@@ -469,6 +441,7 @@ function renderCharities(list) {
       : '';
     btn.innerHTML = `${logoHtml}<span>${escHtml(c.name)}</span>${linkHtml}`;
     btn.addEventListener('click', () => {
+      selectedCharity = c;
       selectedAddress = c.address;
       submitWizard();
     });
@@ -497,7 +470,6 @@ function toggleCountCustom() {
     setTimeout(() => document.getElementById('count-input').focus(), 280);
   } else {
     document.getElementById('count-error').textContent = '';
-    // Restore preset selection if applicable
     const preset = document.querySelector(`#count-pills [data-count="${selectedCount}"]`);
     document.querySelectorAll('#count-pills .pill').forEach(p => p.classList.remove('selected'));
     if (preset) preset.classList.add('selected');
@@ -553,12 +525,12 @@ function addressSubmit() {
   }
   errEl.textContent = '';
   selectedAddress = val;
+  selectedCharity = null;
   submitWizard();
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
 async function submitWizard() {
-  // If custom is open, read from the input at submit time.
   let count = selectedCount;
   if (countCustomOpen) {
     const val = parseInt(document.getElementById('count-input').value, 10);
@@ -614,7 +586,6 @@ function showInvoice(invoice, paymentHash, feeSats, count, expiry) {
   const sec = document.getElementById('invoice-section');
   sec.style.display = 'block';
 
-  // Populate summary
   document.getElementById('summary-count').textContent = count + ' voucher' + (count === 1 ? '' : 's');
   document.getElementById('summary-expiry').textContent = expiry + ' day' + (expiry === 1 ? '' : 's');
   const addrEl = document.getElementById('summary-address');
@@ -674,172 +645,23 @@ async function pollStatus(paymentHash) {
   }
 }
 
-// ── Voucher rendering ────────────────────────────────────────────────────────
-async function showVouchers(vouchers) {
+// ── Success screen ────────────────────────────────────────────────────────────
+function showVouchers(vouchers) {
   currentVouchers = vouchers;
-
   document.getElementById('invoice-section').style.display = 'none';
-  document.getElementById('header-actions').style.display = 'flex';
-  document.getElementById('vouchers-section').style.display = 'block';
+  document.getElementById('success-section').style.display = 'block';
 
   const count = vouchers.length;
-  document.getElementById('vouchers-title').textContent =
-    count + ' Voucher' + (count === 1 ? '' : 's') + ' Ready';
-
-  const grid = document.getElementById('voucher-grid');
-  grid.innerHTML = '';
-
-  for (let i = 0; i < vouchers.length; i++) {
-    const v = vouchers[i];
-    const card = await buildCard(v, i);
-    grid.appendChild(card);
-  }
-}
-
-async function buildCard(v, idx) {
-  const card = document.createElement('div');
-  card.className = 'voucher-card';
-  card.dataset.idx = idx;
-
-  const absDate = new Date(v.absolute_expiry).toLocaleDateString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
-  const relDays = Math.round(v.relative_expiry_seconds / 86400);
-
-  card.innerHTML = `
-    <h3>⚡ TipMe Voucher</h3>
-    <p class="voucher-meta">Address: <strong>${escHtml(v.lightning_address)}</strong></p>
-    <p class="voucher-meta">Expires: ${escHtml(absDate)} · or ${relDays}d after last tip</p>
-    <div class="voucher-qrs">
-      <div class="voucher-qr-block">
-        <div id="qr-pay-${idx}"></div>
-        <span class="voucher-qr-label">⚡ FUND</span>
-      </div>
-      <div class="voucher-qr-block">
-        <div id="qr-withdraw-${idx}"></div>
-        <span class="voucher-qr-label">💸 CLAIM</span>
-      </div>
-    </div>
-  `;
-
-  setTimeout(() => {
-    new QRCode(document.getElementById('qr-pay-' + idx), {
-      text: v.pay_info_url,
-      width: 140,
-      height: 140,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-    new QRCode(document.getElementById('qr-withdraw-' + idx), {
-      text: v.withdraw_info_url,
-      width: 140,
-      height: 140,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  }, 0);
-
-  return card;
-}
-
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── PDF Download ─────────────────────────────────────────────────────────────
-async function downloadPDF() {
-  if (!currentVouchers.length) return;
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  const pageW = 210, pageH = 297;
-  const margin = 10;
-  const cardW = (pageW - margin * 3) / 2;
-  const cardH = 115;
-  const qrMM = 48;
-
-  let col = 0, row = 0;
-  let pageNum = 0;
-
-  for (let i = 0; i < currentVouchers.length; i++) {
-    const v = currentVouchers[i];
-
-    const cardX = margin + col * (cardW + margin);
-    const cardY = margin + row * (cardH + margin);
-
-    if (i > 0 && col === 0 && row === 0) {
-      doc.addPage();
-      pageNum++;
-    }
-
-    await drawCardPDF(doc, v, cardX, cardY, cardW, cardH, qrMM);
-
-    col++;
-    if (col >= 2) { col = 0; row++; }
-    if (row >= 2) { col = 0; row = 0; }
-  }
-
-  doc.save('tipme-vouchers.pdf');
-}
-
-async function drawCardPDF(doc, v, x, y, w, h, qrMM) {
-  doc.setDrawColor(150);
-  doc.setLineDashPattern([2, 2], 0);
-  doc.setLineWidth(0.5);
-  doc.rect(x, y, w, h);
-  doc.setLineDashPattern([], 0);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('TipMe Voucher', x + w / 2, y + 8, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.text('Address: ' + v.lightning_address, x + 4, y + 15);
-
-  const absDate = new Date(v.absolute_expiry).toLocaleDateString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
-  const relDays = Math.round(v.relative_expiry_seconds / 86400);
-  doc.text(`Expires: ${absDate}  (or ${relDays}d after last tip)`, x + 4, y + 21);
-
-  const payDataURL = await getQRDataURL(v.pay_info_url, 256);
-  const withDataURL = await getQRDataURL(v.withdraw_info_url, 256);
-
-  const qrY = y + 26;
-  const qrX1 = x + 5;
-  const qrX2 = x + w - qrMM - 5;
-
-  doc.addImage(payDataURL, 'PNG', qrX1, qrY, qrMM, qrMM);
-  doc.addImage(withDataURL, 'PNG', qrX2, qrY, qrMM, qrMM);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('FUND', qrX1 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
-  doc.text('CLAIM', qrX2 + qrMM / 2, qrY + qrMM + 5, { align: 'center' });
-}
-
-function getQRDataURL(text, size) {
-  return new Promise(resolve => {
-    const container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
-    document.body.appendChild(container);
-
-    new QRCode(container, {
-      text: text,
-      width: size,
-      height: size,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    setTimeout(() => {
-      const img = container.querySelector('img');
-      const canvas = container.querySelector('canvas');
-      const dataURL = (img && img.src) ? img.src
-                    : (canvas ? canvas.toDataURL('image/png') : '');
-      document.body.removeChild(container);
-      resolve(dataURL);
-    }, 80);
-  });
+  document.getElementById('success-title').textContent =
+    '✓ ' + count + ' Voucher' + (count === 1 ? '' : 's') + ' Ready';
+  document.getElementById('summary-count-s').textContent =
+    count + ' voucher' + (count === 1 ? '' : 's');
+  document.getElementById('summary-expiry-s').textContent =
+    document.getElementById('summary-expiry').textContent;
+  const addrEl = document.getElementById('summary-address');
+  const addrSEl = document.getElementById('summary-address-s');
+  addrSEl.textContent = addrEl.textContent;
+  addrSEl.title = addrEl.title;
 }
 
 // ── Reset ────────────────────────────────────────────────────────────────────
@@ -849,16 +671,15 @@ function resetWizard() {
   currentInvoice = null;
   currentVouchers = [];
   selectedAddress = '';
+  selectedCharity = null;
   selectedCount = 10;
   selectedExpiry = 30;
   addressInputOpen = false;
   countCustomOpen = false;
   expiryCustomOpen = false;
 
-  document.getElementById('vouchers-section').style.display = 'none';
+  document.getElementById('success-section').style.display = 'none';
   document.getElementById('invoice-section').style.display = 'none';
-  document.getElementById('header-actions').style.display = 'none';
-  document.getElementById('voucher-grid').innerHTML = '';
   document.getElementById('poll-status').innerHTML =
     '<span class="spinner"></span> Waiting for payment…';
 
@@ -884,6 +705,355 @@ function resetWizard() {
   document.getElementById('pill-address').classList.remove('selected');
 
   document.getElementById('wizard-card').style.display = 'block';
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Extract serial from pay_info_url (last path segment = pay_id UUID)
+function formatSerial(payInfoUrl) {
+  const parts = payInfoUrl.split('/');
+  const payId = parts[parts.length - 1];
+  const raw = payId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return raw.slice(0, 4) + '-' + raw.slice(4, 8);
+}
+
+// Format voucher expiry dates
+function formatExpiry(v) {
+  const abs = new Date(v.absolute_expiry)
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const days = Math.round(v.relative_expiry_seconds / 86400);
+  const rel = days >= 365 ? Math.round(days / 365) + 'y' : days + 'd';
+  return { abs, rel };
+}
+
+// Fetch charity logo and convert to PNG data URL via canvas
+async function loadLogoDataURL(url) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        c.getContext('2d').drawImage(img, 0, 0, 64, 64);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = URL.createObjectURL(blob);
+    });
+  } catch { return null; }
+}
+
+// Render QR code into offscreen div, return data URL
+function getQRDataURL(text, size) {
+  return new Promise(resolve => {
+    const container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+    document.body.appendChild(container);
+
+    new QRCode(container, {
+      text: text,
+      width: size,
+      height: size,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    setTimeout(() => {
+      const img = container.querySelector('img');
+      const canvas = container.querySelector('canvas');
+      const dataURL = (img && img.src) ? img.src
+                    : (canvas ? canvas.toDataURL('image/png') : '');
+      document.body.removeChild(container);
+      resolve(dataURL);
+    }, 80);
+  });
+}
+
+// Rotate image 180° via canvas
+function rotateImage180(dataURL) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.translate(img.width / 2, img.height / 2);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.src = dataURL;
+  });
+}
+
+// ── PDF Drawing ───────────────────────────────────────────────────────────────
+
+function drawCropMarks(doc, x, y, w, h) {
+  const len = 4, gap = 2;
+  doc.setDrawColor('#AAAAAA');
+  doc.setLineWidth(0.3);
+  doc.setLineDashPattern([], 0);
+  // top-left
+  doc.line(x - gap - len, y, x - gap, y);
+  doc.line(x, y - gap - len, x, y - gap);
+  // top-right
+  doc.line(x + w + gap, y, x + w + gap + len, y);
+  doc.line(x + w, y - gap - len, x + w, y - gap);
+  // bottom-left
+  doc.line(x - gap - len, y + h, x - gap, y + h);
+  doc.line(x, y + h + gap, x, y + h + gap + len);
+  // bottom-right
+  doc.line(x + w + gap, y + h, x + w + gap + len, y + h);
+  doc.line(x + w, y + h + gap, x + w, y + h + gap + len);
+}
+
+function drawFundPanel(doc, v, charity, logoDataURL, sx, sy, qrCache) {
+  const pw = 190;
+
+  // Orange accent strip
+  doc.setFillColor('#F7931A');
+  doc.rect(sx, sy, pw, 9, 'F');
+
+  // Charity logo
+  if (logoDataURL) {
+    try { doc.addImage(logoDataURL, 'PNG', sx + 3, sy + 1, 7, 7); } catch (e) {}
+  }
+
+  // Strip label
+  const stripLabel = charity ? charity.name : '⚡ TipMe';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor('#FFFFFF');
+  doc.text(stripLabel, sx + pw / 2, sy + 6.2, { align: 'center' });
+
+  // Subtitle
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(6.5);
+  doc.setTextColor('#888888');
+  doc.text('LIGHTNING TIP VOUCHER', sx + pw / 2, sy + 12, { align: 'center' });
+
+  // Serial / Expires labels
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor('#AAAAAA');
+  doc.text('SERIAL', sx + 4, sy + 16);
+  doc.text('EXPIRES', sx + pw - 4, sy + 16, { align: 'right' });
+
+  // Serial value
+  const serial = formatSerial(v.pay_info_url);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor('#1A1A1A');
+  doc.text(serial, sx + 4, sy + 21);
+
+  // Expiry values
+  const { abs, rel } = formatExpiry(v);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text(abs, sx + pw - 4, sy + 21, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.setTextColor('#888888');
+  doc.text(rel + ' after last tip', sx + pw - 4, sy + 25, { align: 'right' });
+
+  // QR code — 36×36mm centred
+  const qrSize = 36;
+  const qrX = sx + (pw - qrSize) / 2;
+  const qrY = sy + 26;
+  const payQR = qrCache[v.pay_info_url];
+  if (payQR) {
+    try { doc.addImage(payQR, 'PNG', qrX, qrY, qrSize, qrSize); } catch (e) {}
+  }
+
+  // "SCAN TO TIP"
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor('#1A1A1A');
+  doc.text('SCAN TO TIP', sx + pw / 2, sy + 64, { align: 'center' });
+
+  // Security micro-text band
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(2.8);
+  doc.setTextColor('#DDDDDD');
+  doc.text('TIPME '.repeat(60), sx, sy + 62, { maxWidth: pw });
+
+  // Website
+  doc.setFontSize(5);
+  doc.setTextColor('#AAAAAA');
+  doc.text(window.location.origin, sx + pw / 2, sy + 65.5, { align: 'center' });
+}
+
+function drawFoldLine(doc, sx, lineY, pw) {
+  doc.setDrawColor('#888888');
+  doc.setLineWidth(0.4);
+  doc.setLineDashPattern([3, 2], 0);
+  doc.line(sx, lineY, sx + pw, lineY);
+  doc.setLineDashPattern([], 0);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor('#AAAAAA');
+  doc.text('✂  FOLD + GLUE EDGES', sx + 2, lineY - 1.5);
+  doc.text('TEAR OPEN TO CLAIM  ✂', sx + pw - 2, lineY + 3, { align: 'right' });
+}
+
+function drawClaimPanel(doc, v, charity, logoDataURL, sx, panelTopY, qrCache) {
+  // Claim panel is printed upside-down so it faces the Fund panel when folded.
+  // For visual position vy (0 = visual top = physical bottom of panel):
+  //   physical top-left of a rect at vy with height h: (sx, panelTopY + 66 - vy - h)
+  //   text baseline at vy: panelTopY + 66 - vy,  angle: 180
+  const pw = 190;
+  const pH = 66;
+  function pY(vy) { return panelTopY + pH - vy; }
+
+  // Orange accent strip (visual y 0→9 = physical bottom 9mm)
+  doc.setFillColor('#F7931A');
+  doc.rect(sx, pY(9), pw, 9, 'F');
+
+  // Strip label
+  const stripLabel = charity ? charity.name + ' — CLAIM' : '⚡ TipMe — CLAIM';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor('#FFFFFF');
+  doc.text(stripLabel, sx + pw / 2, pY(4.5), { align: 'center', angle: 180 });
+
+  // "ONE USE ONLY"
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor('#1A1A1A');
+  doc.text('ONE USE ONLY', sx + pw / 2, pY(12), { align: 'center', angle: 180 });
+
+  // Instructions
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.setTextColor('#555555');
+  doc.text(
+    'Tear open · Scan with Lightning wallet · Sats arrive instantly',
+    sx + pw / 2, pY(17), { align: 'center', angle: 180 }
+  );
+
+  // QR code 36×36mm centred (visual y 21→57)
+  const qrSize = 36;
+  const qrX = sx + (pw - qrSize) / 2;
+  const rotKey = v.withdraw_info_url + ':rot';
+  const rotQR = qrCache[rotKey];
+  if (rotQR) {
+    // Physical top = pY(57), height = 36mm
+    try { doc.addImage(rotQR, 'PNG', qrX, pY(57), qrSize, qrSize); } catch (e) {}
+  }
+
+  // "CLAIM YOUR SATS"
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor('#1A1A1A');
+  doc.text('CLAIM YOUR SATS', sx + pw / 2, pY(59), { align: 'center', angle: 180 });
+
+  // Website
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor('#AAAAAA');
+  doc.text(window.location.origin, sx + pw / 2, pY(62), { align: 'center', angle: 180 });
+}
+
+function drawCutLine(doc, y) {
+  doc.setDrawColor('#CCCCCC');
+  doc.setLineWidth(0.8);
+  doc.setLineDashPattern([4, 3], 0);
+  doc.line(10, y, 200, y);
+  doc.setLineDashPattern([], 0);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor('#CCCCCC');
+  doc.text('CUT', 2, y + 1);
+}
+
+function drawFoldableVoucher(doc, v, charity, logoDataURL, sx, slotY, qrCache) {
+  const pw = 190, ph = 132;
+
+  // Crop marks
+  drawCropMarks(doc, sx, slotY, pw, ph);
+
+  // Double border
+  doc.setDrawColor('#1A1A1A');
+  doc.setLineWidth(0.8);
+  doc.setLineDashPattern([], 0);
+  doc.rect(sx, slotY, pw, ph);
+  doc.setLineWidth(0.4);
+  doc.rect(sx + 2, slotY + 2, pw - 4, ph - 4);
+
+  // Fund panel (top 66mm)
+  drawFundPanel(doc, v, charity, logoDataURL, sx, slotY, qrCache);
+
+  // Fold line at slotY+66
+  drawFoldLine(doc, sx, slotY + 66, pw);
+
+  // Claim panel (bottom 66mm, printed upside-down)
+  drawClaimPanel(doc, v, charity, logoDataURL, sx, slotY + 66, qrCache);
+}
+
+async function buildPDF() {
+  if (!currentVouchers.length) return null;
+
+  // Pre-load charity logo once
+  let logoDataURL = null;
+  if (selectedCharity && selectedCharity.logo_url) {
+    logoDataURL = await loadLogoDataURL(selectedCharity.logo_url);
+  }
+
+  // Pre-generate all QR data URLs in parallel (320px for sharpness)
+  const qrCache = {};
+  await Promise.all(currentVouchers.flatMap(v =>
+    [v.pay_info_url, v.withdraw_info_url].map(async url => {
+      if (!qrCache[url]) qrCache[url] = await getQRDataURL(url, 320);
+    })
+  ));
+
+  // Pre-rotate withdraw QR codes (claim panel is upside-down)
+  await Promise.all(currentVouchers.map(async v => {
+    const rotKey = v.withdraw_info_url + ':rot';
+    if (!qrCache[rotKey] && qrCache[v.withdraw_info_url]) {
+      qrCache[rotKey] = await rotateImage180(qrCache[v.withdraw_info_url]);
+    }
+  }));
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const SLOT_H = 132, GUTTER = 10, MARGIN = 10, PER_PAGE = 2;
+
+  for (let i = 0; i < currentVouchers.length; i++) {
+    const slot = i % PER_PAGE;
+    if (i > 0 && slot === 0) doc.addPage();
+    const slotY = MARGIN + slot * (SLOT_H + GUTTER);
+    drawFoldableVoucher(doc, currentVouchers[i], selectedCharity, logoDataURL, MARGIN, slotY, qrCache);
+
+    // Cut line between slots on the same page
+    if (slot === 0 && i + 1 < currentVouchers.length) {
+      drawCutLine(doc, slotY + SLOT_H + GUTTER / 2);
+    }
+  }
+
+  return doc;
+}
+
+async function downloadPDF() {
+  const doc = await buildPDF();
+  if (doc) doc.save('tipme-vouchers.pdf');
+}
+
+async function printPDF() {
+  const doc = await buildPDF();
+  if (doc) {
+    doc.autoPrint();
+    doc.output('dataurlnewwindow');
+  }
 }
 </script>
 </body>
