@@ -63,8 +63,12 @@ func handleCreateInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate.
-	if !lightningAddressRE.MatchString(req.LightningAddress) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid lightning_address"})
+	isLightningAddr := lightningAddressRE.MatchString(req.LightningAddress)
+	isLNURL := strings.HasPrefix(strings.ToLower(strings.TrimSpace(req.LightningAddress)), "lnurl1")
+	if !isLightningAddr && !isLNURL {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "invalid lightning_address: must be a Lightning address (user@domain) or a LNURL-pay link (lnurl1...)",
+		})
 		return
 	}
 	if req.Count < 1 || req.Count > cfg.MaxVouchersPerRequest {
@@ -429,13 +433,13 @@ func handleLNURLWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 
 	if err := blitziClient.PayInvoice(ctx, pr); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			// Unknown outcome — deactivate to prevent potential double-pay.
-			log.Printf("CRITICAL: withdraw payment outcome unknown for withdraw_id=%s (%d msats), deactivating to prevent double-pay: %v",
+			// Timeout — assume paid to prevent wallet showing failure for a payment that may have succeeded.
+			log.Printf("CRITICAL: withdraw payment timed out for withdraw_id=%s (%d msats), assuming paid: %v",
 				withdrawID, v.TotalPaidMsats, err)
-			if deactErr := database.DeactivateVoucher(payID, "unknown", v.TotalPaidMsats); deactErr != nil {
+			if deactErr := database.DeactivateVoucher(payID, "timeout_assumed_paid", v.TotalPaidMsats); deactErr != nil {
 				log.Printf("CRITICAL: failed to deactivate withdraw_id=%s after timeout: %v", withdrawID, deactErr)
 			}
-			lnurlError(w, "payment timed out")
+			writeJSON(w, http.StatusOK, map[string]string{"status": "OK"})
 		} else {
 			// Definitive failure — voucher stays active so the user can retry.
 			log.Printf("PayInvoice withdraw (withdraw_id=%s): %v", withdrawID, err)

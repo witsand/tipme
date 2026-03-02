@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -107,26 +108,49 @@ func (c *BlitziClient) GetBalance(ctx context.Context) (int64, error) {
 }
 
 // PayInvoice asks blitzi to pay a BOLT-11 invoice.
+// Retries up to 3 times on "no gateway found" errors with a 2s sleep between attempts.
 func (c *BlitziClient) PayInvoice(ctx context.Context, bolt11 string) error {
-	body, _ := json.Marshal(map[string]any{
-		"invoice": bolt11,
-	})
-	resp, err := c.do(ctx, http.MethodPost, "/pay", body)
-	if err != nil {
-		return err
-	}
-	var result struct {
-		Success bool   `json:"success"`
-		Error   string `json:"error"`
-	}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		// Some blitzi builds return empty body on success; treat as success.
+	body, _ := json.Marshal(map[string]any{"invoice": bolt11})
+
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		resp, err := c.do(ctx, http.MethodPost, "/pay", body)
+		if err != nil {
+			if strings.Contains(err.Error(), "no gateway found") && attempt < maxAttempts {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(2 * time.Second):
+				}
+				lastErr = err
+				continue
+			}
+			return err
+		}
+		var result struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}
+		if err := json.Unmarshal(resp, &result); err != nil {
+			// Some blitzi builds return empty body on success; treat as success.
+			return nil
+		}
+		if !result.Success && result.Error != "" {
+			if strings.Contains(result.Error, "no gateway found") && attempt < maxAttempts {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(2 * time.Second):
+				}
+				lastErr = fmt.Errorf("blitzi pay error: %s", result.Error)
+				continue
+			}
+			return fmt.Errorf("blitzi pay error: %s", result.Error)
+		}
 		return nil
 	}
-	if !result.Success && result.Error != "" {
-		return fmt.Errorf("blitzi pay error: %s", result.Error)
-	}
-	return nil
+	return lastErr
 }
 
 // do executes an authenticated HTTP request to blitzi and returns the response body.

@@ -320,7 +320,7 @@
     <button class="pill" id="pill-address" onclick="toggleAddressInput()">Enter a Lightning address</button>
   </div>
   <div class="expand" id="address-expand">
-    <input type="email" id="address-input" placeholder="alice@getalby.com" autocomplete="off" />
+    <input type="text" id="address-input" placeholder="alice@getalby.com or lnurl1..." autocomplete="off" />
   </div>
   <div class="error-msg" id="address-error"></div>
   <button class="btn-primary" id="address-submit-btn" onclick="addressSubmit()" style="display:none">Create Vouchers</button>
@@ -379,15 +379,15 @@
   <hr class="section-divider">
   <div class="section-label">For you — the creator</div>
   <ol class="instructions">
-    <li>Download and print your vouchers (single-sided)</li>
-    <li>Cut along the dashed lines between vouchers</li>
-    <li>Fold each voucher along the dotted centre line</li>
-    <li>Apply glue to the three open edges to seal</li>
-    <li>Give one sealed voucher to each customer</li>
+    <li>Download and print your vouchers (single-sided, portrait A4)</li>
+    <li>Cut along the dashed horizontal lines to separate each voucher</li>
+    <li>Fold the left tab back behind the right panel along the vertical dashed line</li>
+    <li>Apply glue or tape to seal the left tab to the back of the right panel</li>
+    <li>Give one sealed voucher to each recipient — the right side shows the claim QR</li>
   </ol>
   <hr class="section-divider">
   <div class="section-label">For the recipient</div>
-  <p class="section-hint">Scan the QR code on the front with any Lightning wallet to add a tip. Tear the voucher open to claim the sats inside.</p>
+  <p class="section-hint">Scan the QR on the right side with any Lightning wallet to add a tip. Unfold the left tab to reveal the withdraw QR and claim your sats.</p>
   <hr class="section-divider">
   <div class="invoice-actions">
     <button class="btn-primary" onclick="downloadPDF()">⬇ Download PDF</button>
@@ -519,8 +519,10 @@ function toggleAddressInput() {
 function addressSubmit() {
   const val = document.getElementById('address-input').value.trim();
   const errEl = document.getElementById('address-error');
-  if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-    errEl.textContent = 'Please enter a valid Lightning address.';
+  const isLightningAddr = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isLNURL = val.toLowerCase().startsWith('lnurl1');
+  if (!val || (!isLightningAddr && !isLNURL)) {
+    errEl.textContent = 'Please enter a Lightning address (user@domain) or a LNURL-pay link (lnurl1...).';
     return;
   }
   errEl.textContent = '';
@@ -716,8 +718,7 @@ function escHtml(str) {
 function formatSerial(payInfoUrl) {
   const parts = payInfoUrl.split('/');
   const payId = parts[parts.length - 1];
-  const raw = payId.replace(/-/g, '').slice(0, 8).toUpperCase();
-  return raw.slice(0, 4) + '-' + raw.slice(4, 8);
+  return payId.replace(/-/g, '').slice(-6).toUpperCase();
 }
 
 // Format voucher expiry dates
@@ -750,7 +751,7 @@ async function loadLogoDataURL(url) {
 }
 
 // Render QR code into offscreen div, return data URL
-function getQRDataURL(text, size) {
+function getQRDataURL(text, size, colorDark = '#000000', colorLight = '#ffffff') {
   return new Promise(resolve => {
     const container = document.createElement('div');
     container.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
@@ -760,7 +761,9 @@ function getQRDataURL(text, size) {
       text: text,
       width: size,
       height: size,
-      correctLevel: QRCode.CorrectLevel.M
+      correctLevel: QRCode.CorrectLevel.M,
+      colorDark: colorDark,
+      colorLight: colorLight
     });
 
     setTimeout(() => {
@@ -774,29 +777,17 @@ function getQRDataURL(text, size) {
   });
 }
 
-// Rotate image 180° via canvas
-function rotateImage180(dataURL) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      const ctx = c.getContext('2d');
-      ctx.translate(img.width / 2, img.height / 2);
-      ctx.rotate(Math.PI);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      resolve(c.toDataURL('image/png'));
-    };
-    img.src = dataURL;
-  });
-}
-
 // ── PDF Drawing ───────────────────────────────────────────────────────────────
+const CREAM  = '#F8F4E9';  // cotton-paper background
+const CHAR   = '#2B2B2B';  // charcoal engraving ink
+const GREEN  = '#1B4332';  // forest green
+const ORANGE = '#F7931A';  // Bitcoin orange (rosette ₿ only)
+const BLUE   = '#1A3A8C';  // deep navy — Fund panel accent
+const LIGHT  = '#D4C9A8';  // aged-paper mid-tone for rules
 
 function drawCropMarks(doc, x, y, w, h) {
   const len = 4, gap = 2;
-  doc.setDrawColor('#AAAAAA');
+  doc.setDrawColor(LIGHT);
   doc.setLineWidth(0.3);
   doc.setLineDashPattern([], 0);
   // top-left
@@ -813,190 +804,334 @@ function drawCropMarks(doc, x, y, w, h) {
   doc.line(x + w, y + h + gap, x + w, y + h + gap + len);
 }
 
-function drawFundPanel(doc, v, charity, logoDataURL, sx, sy, qrCache) {
-  const pw = 190;
+// Sawtooth guilloche wave in a horizontal band
+function drawGuillocheWave(doc, x, startY, w, bandH) {
+  const top = startY + 0.25;
+  const bot = startY + bandH - 0.25;
+  const steps = 80;
+  const sw = w / steps;
+  for (let i = 0; i < steps; i++) {
+    const x0 = x + i * sw,       x1 = x + (i + 1) * sw;
+    const y0 = i % 2 === 0 ? top : bot;
+    const y1 = i % 2 === 0 ? bot : top;
+    doc.line(x0, y0, x1, y1);
+  }
+}
 
-  // Orange accent strip
-  doc.setFillColor('#F7931A');
-  doc.rect(sx, sy, pw, 9, 'F');
+// Engraved double-line border with guilloche bands and corner ornaments
+function drawEngravedBorder(doc, x, y, w, h) {
+  const ins = 1.5;
 
-  // Charity logo
-  if (logoDataURL) {
-    try { doc.addImage(logoDataURL, 'PNG', sx + 3, sy + 1, 7, 7); } catch (e) {}
+  // Outer border (0.6pt charcoal)
+  doc.setDrawColor(CHAR);
+  doc.setLineWidth(0.6);
+  doc.setLineDashPattern([], 0);
+  doc.rect(x, y, w, h);
+
+  // Inner border (0.3pt charcoal), inset 1.5mm
+  doc.setLineWidth(0.3);
+  doc.rect(x + ins, y + ins, w - 2 * ins, h - 2 * ins);
+
+  // Guilloche waves inside the 1.5mm border band
+  doc.setDrawColor(CHAR);
+  doc.setLineWidth(0.2);
+  drawGuillocheWave(doc, x, y, w, ins);
+  drawGuillocheWave(doc, x, y + h - ins, w, ins);
+
+  // Corner ornaments: diamond (4 lines) + crosshair ticks
+  const d = 1.5, tk = 0.8;
+  const corners = [
+    [x + 2.5, y + 2.5],
+    [x + w - 2.5, y + 2.5],
+    [x + 2.5, y + h - 2.5],
+    [x + w - 2.5, y + h - 2.5],
+  ];
+  doc.setDrawColor(CHAR);
+  doc.setLineWidth(0.3);
+  for (const [cx, cy] of corners) {
+    // Diamond
+    doc.line(cx,     cy - d, cx + d, cy);
+    doc.line(cx + d, cy,     cx,     cy + d);
+    doc.line(cx,     cy + d, cx - d, cy);
+    doc.line(cx - d, cy,     cx,     cy - d);
+    // Crosshair ticks
+    doc.line(cx,          cy - d - tk, cx,          cy - d);
+    doc.line(cx,          cy + d,      cx,          cy + d + tk);
+    doc.line(cx - d - tk, cy,          cx - d,      cy);
+    doc.line(cx + d,      cy,          cx + d + tk, cy);
   }
 
-  // Strip label
-  const stripLabel = charity ? charity.name : '⚡ TipMe';
+  // Mid-rule lines to divide header / body / footer zones
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.15);
+  doc.setLineDashPattern([], 0);
+  doc.line(x, y + 12, x + w, y + 12);
+  doc.line(x, y + 57, x + w, y + 57);
+}
+
+// L-shaped corner bracket QR frame
+function drawQRCornerBrackets(doc, qx, qy, qw, qh, color) {
+  const arm = 3;
+  doc.setDrawColor(color);
+  doc.setLineWidth(0.6);
+  doc.setLineDashPattern([], 0);
+  // top-left
+  doc.line(qx,            qy,       qx + arm,    qy);
+  doc.line(qx,            qy,       qx,          qy + arm);
+  // top-right
+  doc.line(qx + qw - arm, qy,       qx + qw,     qy);
+  doc.line(qx + qw,       qy,       qx + qw,     qy + arm);
+  // bottom-left
+  doc.line(qx,            qy + qh - arm, qx,     qy + qh);
+  doc.line(qx,            qy + qh,  qx + arm,    qy + qh);
+  // bottom-right
+  doc.line(qx + qw,       qy + qh - arm, qx + qw, qy + qh);
+  doc.line(qx + qw - arm, qy + qh,  qx + qw,    qy + qh);
+}
+
+// Circular rosette medallion drawn with jsPDF primitives
+function drawRosette(doc, cx, cy) {
+  const rOuter = 11, rInner = 9, rMid = 10;
+
+  // Outer circle (0.4pt)
+  doc.setDrawColor(CHAR);
+  doc.setLineWidth(0.4);
+  doc.circle(cx, cy, rOuter, 'S');
+
+  // Inner circle (0.2pt)
+  doc.setLineWidth(0.2);
+  doc.circle(cx, cy, rInner, 'S');
+
+  // 16-petal ring: small circles on the mid-ring
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * 2 * Math.PI;
+    doc.circle(
+      cx + rMid * Math.cos(angle),
+      cy + rMid * Math.sin(angle),
+      1.0, 'S'
+    );
+  }
+
+  // 8 radial tick marks (offset between petals)
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * 2 * Math.PI + Math.PI / 16;
+    doc.line(
+      cx + rInner * Math.cos(angle), cy + rInner * Math.sin(angle),
+      cx + rOuter * Math.cos(angle), cy + rOuter * Math.sin(angle)
+    );
+  }
+
+  // Bitcoin B: bold "B" (18pt) + two bars crossing THROUGH the letter
+  // At 18pt helvetica bold: cap height ≈ 4.6mm, baseline at cy+2.5 → cap top ≈ cy-2.1
+  // Bars sit 0.5mm inside each edge so they visibly cross through the stem
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor('#FFFFFF');
-  doc.text(stripLabel, sx + pw / 2, sy + 6.2, { align: 'center' });
+  doc.setFontSize(18);
+  doc.setTextColor(ORANGE);
+  doc.text('B', cx, cy + 2.5, { align: 'center' });
+  doc.setDrawColor(ORANGE);
+  doc.setLineWidth(0.7);
+  doc.setLineDashPattern([], 0);
+  doc.line(cx - 2.8, cy - 1.6, cx + 2.8, cy - 1.6);  // top bar  (inside letter near top)
+  doc.line(cx - 2.8, cy + 2.1, cx + 2.8, cy + 2.1);  // bottom bar (inside letter near bottom)
+}
 
-  // Subtitle
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(6.5);
-  doc.setTextColor('#888888');
-  doc.text('LIGHTNING TIP VOUCHER', sx + pw / 2, sy + 12, { align: 'center' });
+function drawPayPanel(doc, v, x, y, qrCache) {
+  const pw = 52.4;
 
-  // Serial / Expires labels
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.setTextColor('#AAAAAA');
-  doc.text('SERIAL', sx + 4, sy + 16);
-  doc.text('EXPIRES', sx + pw - 4, sy + 16, { align: 'right' });
-
-  // Serial value
-  const serial = formatSerial(v.pay_info_url);
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor('#1A1A1A');
-  doc.text(serial, sx + 4, sy + 21);
-
-  // Expiry values
-  const { abs, rel } = formatExpiry(v);
+  // "FUND" header
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text(abs, sx + pw - 4, sy + 21, { align: 'right' });
+  doc.setFontSize(10);
+  doc.setTextColor(BLUE);
+  doc.text('FUND', x + pw / 2, y + 6, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor('#888888');
-  doc.text(rel + ' after last tip', sx + pw - 4, sy + 25, { align: 'right' });
+  // Thin blue rule
+  doc.setDrawColor(BLUE);
+  doc.setLineWidth(0.3);
+  doc.setLineDashPattern([], 0);
+  doc.line(x + 2, y + 9, x + pw - 2, y + 9);
 
-  // QR code — 36×36mm centred
-  const qrSize = 36;
-  const qrX = sx + (pw - qrSize) / 2;
-  const qrY = sy + 26;
+  // QR corner brackets: 44×44mm box centred in 52.4mm panel
+  const qfx = x + (pw - 44) / 2;
+  drawQRCornerBrackets(doc, qfx, y + 13, 44, 44, BLUE);
+
+  // QR image (42×42mm) inside brackets
   const payQR = qrCache[v.pay_info_url];
   if (payQR) {
-    try { doc.addImage(payQR, 'PNG', qrX, qrY, qrSize, qrSize); } catch (e) {}
+    try { doc.addImage(payQR, 'PNG', qfx + 1, y + 14, 42, 42); } catch (e) {}
   }
 
-  // "SCAN TO TIP"
+  // "Scan to load bitcoin"
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor('#1A1A1A');
-  doc.text('SCAN TO TIP', sx + pw / 2, sy + 64, { align: 'center' });
+  doc.setFontSize(5.5);
+  doc.setTextColor(CHAR);
+  doc.text('Scan to load bitcoin', x + pw / 2, y + 59, { align: 'center' });
 
-  // Security micro-text band
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(2.8);
-  doc.setTextColor('#DDDDDD');
-  doc.text('TIPME '.repeat(60), sx, sy + 62, { maxWidth: pw });
-
-  // Website
-  doc.setFontSize(5);
-  doc.setTextColor('#AAAAAA');
-  doc.text(window.location.origin, sx + pw / 2, sy + 65.5, { align: 'center' });
-}
-
-function drawFoldLine(doc, sx, lineY, pw) {
-  doc.setDrawColor('#888888');
-  doc.setLineWidth(0.4);
-  doc.setLineDashPattern([3, 2], 0);
-  doc.line(sx, lineY, sx + pw, lineY);
+  // Thin LIGHT rule
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.15);
   doc.setLineDashPattern([], 0);
+  doc.line(x + 2, y + 62, x + pw - 2, y + 62);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.setTextColor('#AAAAAA');
-  doc.text('✂  FOLD + GLUE EDGES', sx + 2, lineY - 1.5);
-  doc.text('TEAR OPEN TO CLAIM  ✂', sx + pw - 2, lineY + 3, { align: 'right' });
+  // Serial short-code
+  const serial = formatSerial(v.pay_info_url);
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(4.5);
+  doc.setTextColor(LIGHT);
+  doc.text(serial, x + pw / 2, y + 65.5, { align: 'center' });
 }
 
-function drawClaimPanel(doc, v, charity, logoDataURL, sx, panelTopY, qrCache) {
-  // Claim panel is printed upside-down so it faces the Fund panel when folded.
-  // For visual position vy (0 = visual top = physical bottom of panel):
-  //   physical top-left of a rect at vy with height h: (sx, panelTopY + 66 - vy - h)
-  //   text baseline at vy: panelTopY + 66 - vy,  angle: 180
-  const pw = 190;
-  const pH = 66;
-  function pY(vy) { return panelTopY + pH - vy; }
+function drawWithdrawPanel(doc, v, charity, logoDataURL, x, y, qrCache) {
+  const LEFT_COL_W  = 60;
+  const RIGHT_COL_X = x + LEFT_COL_W;
+  const rightColW   = 77.6;
+  const rightCx     = RIGHT_COL_X + rightColW / 2;
 
-  // Orange accent strip (visual y 0→9 = physical bottom 9mm)
-  doc.setFillColor('#F7931A');
-  doc.rect(sx, pY(9), pw, 9, 'F');
+  // ── Left sub-column: QR zone ─────────────────────────────────────────────
 
-  // Strip label
-  const stripLabel = charity ? charity.name + ' — CLAIM' : '⚡ TipMe — CLAIM';
+  // "REDEEM" header
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor('#FFFFFF');
-  doc.text(stripLabel, sx + pw / 2, pY(4.5), { align: 'center', angle: 180 });
+  doc.setFontSize(10);
+  doc.setTextColor(GREEN);
+  doc.text('REDEEM', x + LEFT_COL_W / 2, y + 6, { align: 'center' });
 
-  // "ONE USE ONLY"
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor('#1A1A1A');
-  doc.text('ONE USE ONLY', sx + pw / 2, pY(12), { align: 'center', angle: 180 });
+  // Thin green rule
+  doc.setDrawColor(GREEN);
+  doc.setLineWidth(0.3);
+  doc.setLineDashPattern([], 0);
+  doc.line(x + 2, y + 9, x + LEFT_COL_W - 2, y + 9);
 
-  // Instructions
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor('#555555');
-  doc.text(
-    'Tear open · Scan with Lightning wallet · Sats arrive instantly',
-    sx + pw / 2, pY(17), { align: 'center', angle: 180 }
-  );
+  // QR corner brackets: 44×44mm box centred in 60mm col
+  const qfx = x + (LEFT_COL_W - 44) / 2;
+  drawQRCornerBrackets(doc, qfx, y + 13, 44, 44, GREEN);
 
-  // QR code 36×36mm centred (visual y 21→57)
-  const qrSize = 36;
-  const qrX = sx + (pw - qrSize) / 2;
-  const rotKey = v.withdraw_info_url + ':rot';
-  const rotQR = qrCache[rotKey];
-  if (rotQR) {
-    // Physical top = pY(57), height = 36mm
-    try { doc.addImage(rotQR, 'PNG', qrX, pY(57), qrSize, qrSize); } catch (e) {}
+  // QR image (42×42mm)
+  const withdrawQR = qrCache[v.withdraw_info_url];
+  if (withdrawQR) {
+    try { doc.addImage(withdrawQR, 'PNG', qfx + 1, y + 14, 42, 42); } catch (e) {}
   }
 
-  // "CLAIM YOUR SATS"
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor('#1A1A1A');
-  doc.text('CLAIM YOUR SATS', sx + pw / 2, pY(59), { align: 'center', angle: 180 });
-
-  // Website
+  // "Serial No" label (mid-rule at y+57 provides visual separator)
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.setTextColor('#AAAAAA');
-  doc.text(window.location.origin, sx + pw / 2, pY(62), { align: 'center', angle: 180 });
+  doc.setFontSize(4);
+  doc.setTextColor(CHAR);
+  doc.text('Serial No', x + LEFT_COL_W / 2, y + 60, { align: 'center' });
+
+  // Full withdraw UUID
+  const wParts = v.withdraw_info_url.split('/');
+  const withdrawUUID = wParts[wParts.length - 1];
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(3.5);
+  doc.setTextColor(CHAR);
+  doc.text(withdrawUUID, x + LEFT_COL_W / 2, y + 63.5, { align: 'center', maxWidth: LEFT_COL_W - 4 });
+
+  // ── Right sub-column: info zone ───────────────────────────────────────────
+
+  // "BITCOIN VOUCHER" title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(CHAR);
+  doc.text('BITCOIN VOUCHER', rightCx, y + 4, { align: 'center' });
+
+  // "SERIES  2026"
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(CHAR);
+  doc.text('SERIES  2026', rightCx, y + 10, { align: 'center' });
+
+  // Rule
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.15);
+  doc.setLineDashPattern([], 0);
+  doc.line(RIGHT_COL_X + 2, y + 12.5, RIGHT_COL_X + rightColW - 2, y + 12.5);
+
+  // Rosette medallion centred in right col (y+15→y+37, Ø22mm)
+  drawRosette(doc, rightCx, y + 26);
+
+  // Rule below rosette
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.15);
+  doc.setLineDashPattern([], 0);
+  doc.line(RIGHT_COL_X + 2, y + 38, RIGHT_COL_X + rightColW - 2, y + 38);
+
+  // Expiry text
+  const expiryDays = Math.round(v.relative_expiry_seconds / 86400);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(4.5);
+  doc.setTextColor(CHAR);
+  doc.text('This voucher expires ' + expiryDays + ' days after funding', rightCx, y + 41, { align: 'center' });
+
+  doc.setFontSize(4);
+  doc.setTextColor(LIGHT);
+  doc.text('Unclaimed funds will be directed to charity', rightCx, y + 49, { align: 'center' });
+
+  // Rule
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.15);
+  doc.setLineDashPattern([], 0);
+  doc.line(RIGHT_COL_X + 2, y + 56, RIGHT_COL_X + rightColW - 2, y + 56);
+
+  // Charity info
+  if (charity) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(4);
+    doc.setTextColor(CHAR);
+    doc.text('Supporting', rightCx, y + 60, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(4.5);
+    doc.setTextColor(CHAR);
+    doc.text(charity.name, rightCx, y + 63.5, { align: 'center', maxWidth: 73 });
+
+    if (charity.website) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(3.5);
+      doc.setTextColor(LIGHT);
+      doc.text(charity.website, rightCx, y + 67, { align: 'center', maxWidth: 73 });
+    }
+  }
 }
 
-function drawCutLine(doc, y) {
-  doc.setDrawColor('#CCCCCC');
-  doc.setLineWidth(0.8);
-  doc.setLineDashPattern([4, 3], 0);
+function drawVerticalFoldLine(doc, x, y, h) {
+  // Engraved double-line separator (no dash)
+  doc.setDrawColor(CHAR);
+  doc.setLineWidth(0.4);
+  doc.setLineDashPattern([], 0);
+  doc.line(x, y, x, y + h);
+
+  doc.setLineWidth(0.2);
+  doc.line(x + 0.8, y, x + 0.8, y + h);
+
+  // "FOLD BACK" label
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(4.5);
+  doc.setTextColor(LIGHT);
+  doc.text('FOLD BACK', x - 1.5, y + h / 2, { angle: 90, align: 'center' });
+}
+
+function drawHorizontalCutLine(doc, y) {
+  doc.setDrawColor(LIGHT);
+  doc.setLineWidth(0.5);
+  doc.setLineDashPattern([3, 2], 0);
   doc.line(10, y, 200, y);
   doc.setLineDashPattern([], 0);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.setTextColor('#CCCCCC');
-  doc.text('CUT', 2, y + 1);
+  doc.setFontSize(4.5);
+  doc.setTextColor(LIGHT);
+  doc.text('CUT', 2, y - 0.8);
 }
 
-function drawFoldableVoucher(doc, v, charity, logoDataURL, sx, slotY, qrCache) {
-  const pw = 190, ph = 132;
+function drawVoucher(doc, v, charity, logoDataURL, x, y, qrCache) {
+  drawCropMarks(doc, x, y, 190, 69.25);
 
-  // Crop marks
-  drawCropMarks(doc, sx, slotY, pw, ph);
+  // Cream paper background
+  doc.setFillColor(CREAM);
+  doc.rect(x, y, 190, 69.25, 'F');
 
-  // Double border
-  doc.setDrawColor('#1A1A1A');
-  doc.setLineWidth(0.8);
-  doc.setLineDashPattern([], 0);
-  doc.rect(sx, slotY, pw, ph);
-  doc.setLineWidth(0.4);
-  doc.rect(sx + 2, slotY + 2, pw - 4, ph - 4);
-
-  // Fund panel (top 66mm)
-  drawFundPanel(doc, v, charity, logoDataURL, sx, slotY, qrCache);
-
-  // Fold line at slotY+66
-  drawFoldLine(doc, sx, slotY + 66, pw);
-
-  // Claim panel (bottom 66mm, printed upside-down)
-  drawClaimPanel(doc, v, charity, logoDataURL, sx, slotY + 66, qrCache);
+  drawEngravedBorder(doc, x, y, 190, 69.25);
+  drawPayPanel(doc, v, x, y, qrCache);
+  drawWithdrawPanel(doc, v, charity, logoDataURL, x + 52.4, y, qrCache);
+  drawVerticalFoldLine(doc, x + 52.4, y, 69.25);
 }
 
 async function buildPDF() {
@@ -1010,33 +1145,29 @@ async function buildPDF() {
 
   // Pre-generate all QR data URLs in parallel (320px for sharpness)
   const qrCache = {};
-  await Promise.all(currentVouchers.flatMap(v =>
-    [v.pay_info_url, v.withdraw_info_url].map(async url => {
-      if (!qrCache[url]) qrCache[url] = await getQRDataURL(url, 320);
-    })
-  ));
-
-  // Pre-rotate withdraw QR codes (claim panel is upside-down)
-  await Promise.all(currentVouchers.map(async v => {
-    const rotKey = v.withdraw_info_url + ':rot';
-    if (!qrCache[rotKey] && qrCache[v.withdraw_info_url]) {
-      qrCache[rotKey] = await rotateImage180(qrCache[v.withdraw_info_url]);
-    }
+  await Promise.all(currentVouchers.flatMap(v => {
+    const tasks = [];
+    if (!qrCache[v.pay_info_url])
+      tasks.push(getQRDataURL(v.pay_info_url,     320, '#1A3A8C', '#F8F4E9').then(d => { qrCache[v.pay_info_url]     = d; }));
+    if (!qrCache[v.withdraw_info_url])
+      tasks.push(getQRDataURL(v.withdraw_info_url, 320, '#1B4332', '#F8F4E9').then(d => { qrCache[v.withdraw_info_url] = d; }));
+    return tasks;
   }));
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const SLOT_H = 132, GUTTER = 10, MARGIN = 10, PER_PAGE = 2;
+  const PER_PAGE = 4, VOUCHER_H = 69.25, MARGIN = 10;
 
   for (let i = 0; i < currentVouchers.length; i++) {
     const slot = i % PER_PAGE;
     if (i > 0 && slot === 0) doc.addPage();
-    const slotY = MARGIN + slot * (SLOT_H + GUTTER);
-    drawFoldableVoucher(doc, currentVouchers[i], selectedCharity, logoDataURL, MARGIN, slotY, qrCache);
 
-    // Cut line between slots on the same page
-    if (slot === 0 && i + 1 < currentVouchers.length) {
-      drawCutLine(doc, slotY + SLOT_H + GUTTER / 2);
+    const slotY = MARGIN + slot * VOUCHER_H;
+    drawVoucher(doc, currentVouchers[i], selectedCharity, logoDataURL, MARGIN, slotY, qrCache);
+
+    // Cut line at shared edge between adjacent slots (not after last slot on page)
+    if (slot < PER_PAGE - 1 && i + 1 < currentVouchers.length) {
+      drawHorizontalCutLine(doc, MARGIN + (slot + 1) * VOUCHER_H);
     }
   }
 

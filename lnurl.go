@@ -131,18 +131,11 @@ type LNURLPayParams struct {
 
 var lnHTTP = &http.Client{Timeout: 15 * time.Second}
 
-// ResolveLightningAddress resolves user@domain to LNURL-Pay params.
-func ResolveLightningAddress(address string) (*LNURLPayParams, error) {
-	parts := strings.SplitN(address, "@", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid lightning address: %s", address)
-	}
-	user, domain := parts[0], parts[1]
-	url := fmt.Sprintf("https://%s/.well-known/lnurlp/%s", domain, user)
-
-	resp, err := lnHTTP.Get(url)
+// fetchLNURLPayParams fetches a LNURL-Pay metadata URL and returns the params.
+func fetchLNURLPayParams(rawURL string) (*LNURLPayParams, error) {
+	resp, err := lnHTTP.Get(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", address, err)
+		return nil, fmt.Errorf("fetch lnurlp %s: %w", rawURL, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -150,17 +143,35 @@ func ResolveLightningAddress(address string) (*LNURLPayParams, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("resolve %s: status %d", address, resp.StatusCode)
+		return nil, fmt.Errorf("fetch lnurlp %s: status %d", rawURL, resp.StatusCode)
 	}
-
 	var params LNURLPayParams
 	if err := json.Unmarshal(body, &params); err != nil {
 		return nil, fmt.Errorf("decode lnurlp params: %w", err)
 	}
 	if params.Callback == "" {
-		return nil, fmt.Errorf("empty callback from %s", address)
+		return nil, fmt.Errorf("empty callback from %s", rawURL)
 	}
 	return &params, nil
+}
+
+// ResolveLightningAddress resolves user@domain to LNURL-Pay params.
+func ResolveLightningAddress(address string) (*LNURLPayParams, error) {
+	parts := strings.SplitN(address, "@", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid lightning address: %s", address)
+	}
+	user, domain := parts[0], parts[1]
+	return fetchLNURLPayParams(fmt.Sprintf("https://%s/.well-known/lnurlp/%s", domain, user))
+}
+
+// ResolveLNURLPay decodes a bech32 LNURL string and fetches its LNURL-Pay params.
+func ResolveLNURLPay(lnurlStr string) (*LNURLPayParams, error) {
+	rawURL, err := DecodeLNURL(lnurlStr)
+	if err != nil {
+		return nil, fmt.Errorf("decode lnurl: %w", err)
+	}
+	return fetchLNURLPayParams(rawURL)
 }
 
 // GetInvoiceFromCallback calls a LNURL-Pay callback to get a BOLT-11 invoice.
@@ -201,11 +212,20 @@ func GetInvoiceFromCallback(callbackURL string, amountMsats int64) (string, erro
 	return result.PR, nil
 }
 
-// RefundToLightningAddress sends amountMsats to a Lightning address via LNURL-Pay.
+// RefundToLightningAddress sends amountMsats to a Lightning address or LNURL-Pay link.
 func RefundToLightningAddress(address string, amountMsats int64) error {
-	params, err := ResolveLightningAddress(address)
-	if err != nil {
-		return fmt.Errorf("resolve address: %w", err)
+	var params *LNURLPayParams
+	var err error
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(address)), "lnurl1") {
+		params, err = ResolveLNURLPay(address)
+		if err != nil {
+			return fmt.Errorf("resolve lnurl: %w", err)
+		}
+	} else {
+		params, err = ResolveLightningAddress(address)
+		if err != nil {
+			return fmt.Errorf("resolve address: %w", err)
+		}
 	}
 
 	// Skip dust that falls below the target's minimum.
